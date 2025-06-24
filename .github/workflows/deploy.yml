@@ -62,6 +62,22 @@ jobs:
                   NODE_ENV: production
                   NEXT_TELEMETRY_DISABLED: 1
 
+            - name: 🔍 Verify build output
+              run: |
+                  echo "=== Build Output Structure ==="
+                  ls -la .next/
+                  echo ""
+                  if [ -d ".next/standalone" ]; then
+                    echo "=== Standalone Directory ==="
+                    ls -la .next/standalone/
+                    echo ""
+                    echo "=== Standalone .next Directory ==="
+                    ls -la .next/standalone/.next/ || echo "No .next in standalone"
+                  fi
+                  echo ""
+                  echo "=== Static Directory ==="
+                  ls -la .next/static/ || echo "No static directory"
+
             - name: 🛑 Stop existing PM2 process
               run: |
                   if pm2 list | grep -q "${{ env.PM2_APP_NAME }}"; then
@@ -80,16 +96,32 @@ jobs:
             - name: 🗑️ Clear web directory
               run: sudo rm -rf ${{ env.WEB_DIR }}/*
 
-            - name: 📂 Deploy files
+            - name: 📂 Deploy files (Fixed)
               run: |
                   # Next.js standalone 배포
                   if [ -d ".next/standalone" ]; then
                     echo "✅ Deploying Next.js standalone..."
-                    sudo cp -r .next/standalone/* ${{ env.WEB_DIR }}/
-                    sudo cp -r .next/static ${{ env.WEB_DIR }}/.next/
-                    sudo cp -r public ${{ env.WEB_DIR }}/
                     
-                    # PM2로 Next.js 서버 시작
+                    # 1. standalone 파일들 복사
+                    sudo cp -r .next/standalone/* ${{ env.WEB_DIR }}/
+                    
+                    # 2. static 파일들을 올바른 위치에 복사
+                    sudo mkdir -p ${{ env.WEB_DIR }}/.next
+                    sudo cp -r .next/static ${{ env.WEB_DIR }}/.next/
+                    
+                    # 3. public 파일들 복사
+                    if [ -d "public" ]; then
+                      sudo cp -r public/* ${{ env.WEB_DIR }}/public/ 2>/dev/null || sudo mkdir -p ${{ env.WEB_DIR }}/public
+                    fi
+                    
+                    # 4. 배포된 파일 구조 확인
+                    echo "=== Deployed File Structure ==="
+                    ls -la ${{ env.WEB_DIR }}/
+                    echo ""
+                    echo "=== .next Directory in Deployment ==="
+                    ls -la ${{ env.WEB_DIR }}/.next/ || echo "No .next directory"
+                    
+                    # 5. PM2로 Next.js 서버 시작
                     cd ${{ env.WEB_DIR }}
                     echo "🚀 Starting PM2 process..."
                     pm2 start server.js --name ${{ env.PM2_APP_NAME }} --env production
@@ -101,8 +133,11 @@ jobs:
                     if [ -d "out" ]; then
                       sudo cp -r out/* ${{ env.WEB_DIR }}/
                     else
+                      sudo mkdir -p ${{ env.WEB_DIR }}/_next
                       sudo cp -r .next/static ${{ env.WEB_DIR }}/_next/
-                      sudo cp -r public/* ${{ env.WEB_DIR }}/
+                      if [ -d "public" ]; then
+                        sudo cp -r public/* ${{ env.WEB_DIR }}/
+                      fi
                     fi
                   fi
 
@@ -121,11 +156,14 @@ jobs:
                   echo "=== PM2 Status ==="
                   pm2 list
                   echo ""
-                  echo "=== PM2 Logs (last 20 lines) ==="
-                  pm2 logs ${{ env.PM2_APP_NAME }} --lines 20 || echo "No PM2 logs available"
+                  echo "=== PM2 Logs (last 10 lines) ==="
+                  pm2 logs ${{ env.PM2_APP_NAME }} --lines 10 || echo "No PM2 logs available"
                   echo ""
                   echo "=== Web Directory Contents ==="
                   ls -la ${{ env.WEB_DIR }}
+                  echo ""
+                  echo "=== .next Directory in Web Dir ==="
+                  ls -la ${{ env.WEB_DIR }}/.next/ || echo "No .next directory in web dir"
                   echo ""
                   echo "=== Nginx Status ==="
                   sudo systemctl status nginx --no-pager -l
@@ -142,7 +180,7 @@ jobs:
                   if pm2 list | grep -q "${{ env.PM2_APP_NAME }}"; then
                     echo "✅ PM2 process is running"
                     
-                    # PM2 앱이 실제로 ���답하는지 확인
+                    # PM2 앱이 실제로 응답하는지 확인
                     if curl -f -s --connect-timeout 5 http://localhost:3000 > /dev/null; then
                       echo "✅ Next.js server is responding on port 3000"
                     else
