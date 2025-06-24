@@ -27,15 +27,28 @@ jobs:
               with:
                   node-version: ${{ env.NODE_VERSION }}
 
-            - name: 🧹 Clean npm cache and node_modules
+            - name: 🧹 Clean installation
               run: |
                   npm cache clean --force
                   rm -rf node_modules
                   rm -f package-lock.json
 
-            - name: 📥 Install dependencies
+            - name: 📥 Install dependencies with retry
               run: |
-                  npm install --legacy-peer-deps --no-audit --no-fund
+                  # 첫 번째 시도
+                  npm install --legacy-peer-deps --no-audit --no-fund || {
+                    echo "First install failed, cleaning and retrying..."
+                    rm -rf node_modules
+                    npm cache clean --force
+                    # 두 번째 시도
+                    npm install --legacy-peer-deps --no-audit --no-fund --verbose
+                  }
+
+            - name: 🔍 Verify installation
+              run: |
+                  echo "Checking installed packages..."
+                  ls -la node_modules/@radix-ui/ | head -10
+                  npm list --depth=0 | grep radix || echo "No radix packages found"
 
             - name: 🧪 Run tests
               run: npm test --if-present
