@@ -5,81 +5,129 @@ on:
         branches: [main, master]
     pull_request:
         branches: [main, master]
+        types: [closed]
+
+env:
+    NODE_VERSION: "18"
+    WEB_DIR: "/var/www/html"
+    PM2_APP_NAME: "laundry-app"
 
 jobs:
-    build-and-deploy:
+    deploy:
         runs-on: self-hosted
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
 
         steps:
-            - name: Checkout code
+            - name: 🚀 Checkout code
               uses: actions/checkout@v4
 
-            - name: Setup Node.js
+            - name: 📦 Setup Node.js
               uses: actions/setup-node@v4
               with:
-                  node-version: "18"
+                  node-version: ${{ env.NODE_VERSION }}
                   cache: "npm"
 
-            - name: Install dependencies
+            - name: 📥 Install dependencies
               run: npm ci
 
-            - name: Build application
+            - name: 🧪 Run tests
+              run: npm test --if-present
+              continue-on-error: true
+
+            - name: 🏗️ Build application
               run: npm run build
               env:
                   NODE_ENV: production
 
-            - name: Run tests (optional)
-              run: npm test --if-present
-              continue-on-error: true
-
-            - name: Stop nginx (if needed for deployment)
-              run: sudo systemctl stop nginx
-              continue-on-error: true
-
-            - name: Backup current deployment
+            - name: 🛑 Stop existing PM2 process
               run: |
-                  if [ -d "/var/www/html" ]; then
-                    sudo cp -r /var/www/html /var/www/html.backup.$(date +%Y%m%d_%H%M%S)
+                  if pm2 list | grep -q "${{ env.PM2_APP_NAME }}"; then
+                    pm2 stop ${{ env.PM2_APP_NAME }}
+                    pm2 delete ${{ env.PM2_APP_NAME }}
                   fi
               continue-on-error: true
 
-            - name: Clear web directory
-              run: sudo rm -rf /var/www/html/*
-
-            - name: Deploy to web directory
+            - name: 💾 Backup current deployment
               run: |
-                  sudo cp -r .next/standalone/* /var/www/html/
-                  sudo cp -r .next/static /var/www/html/.next/
-                  sudo cp -r public /var/www/html/
-
-            - name: Set proper permissions
-              run: |
-                  sudo chown -R www-data:www-data /var/www/html
-                  sudo chmod -R 755 /var/www/html
-
-            - name: Start nginx
-              run: sudo systemctl start nginx
-
-            - name: Verify nginx status
-              run: sudo systemctl status nginx
-
-            - name: Health check
-              run: |
-                  sleep 5
-                  curl -f http://localhost || exit 1
-
-            - name: Cleanup old backups (keep last 5)
-              run: |
-                  cd /var/www
-                  sudo ls -t html.backup.* 2>/dev/null | tail -n +6 | sudo xargs rm -rf
+                  if [ -d "${{ env.WEB_DIR }}" ]; then
+                    sudo cp -r ${{ env.WEB_DIR }} ${{ env.WEB_DIR }}.backup.$(date +%Y%m%d_%H%M%S)
+                  fi
               continue-on-error: true
 
-            - name: Notify deployment status
+            - name: 🗑️ Clear web directory
+              run: sudo rm -rf ${{ env.WEB_DIR }}/*
+
+            - name: 📂 Deploy files
+              run: |
+                  # Next.js standalone 배포
+                  if [ -d ".next/standalone" ]; then
+                    echo "Deploying Next.js standalone..."
+                    sudo cp -r .next/standalone/* ${{ env.WEB_DIR }}/
+                    sudo cp -r .next/static ${{ env.WEB_DIR }}/.next/
+                    sudo cp -r public ${{ env.WEB_DIR }}/
+                    
+                    # PM2로 Next.js 서버 시작
+                    cd ${{ env.WEB_DIR }}
+                    pm2 start server.js --name ${{ env.PM2_APP_NAME }} --env production
+                    pm2 save
+                    
+                  else
+                    echo "Deploying static files..."
+                    # 정적 파일 배포 (export가 있는 경우)
+                    if [ -d "out" ]; then
+                      sudo cp -r out/* ${{ env.WEB_DIR }}/
+                    else
+                      sudo cp -r .next/static ${{ env.WEB_DIR }}/_next/
+                      sudo cp -r public/* ${{ env.WEB_DIR }}/
+                    fi
+                  fi
+
+            - name: 🔐 Set permissions
+              run: |
+                  sudo chown -R www-data:www-data ${{ env.WEB_DIR }}
+                  sudo chmod -R 755 ${{ env.WEB_DIR }}
+
+            - name: 🔄 Restart nginx
+              run: |
+                  sudo nginx -t
+                  sudo systemctl reload nginx
+
+            - name: ✅ Health check
+              run: |
+                  sleep 5
+                  # PM2 앱이 실행 중인지 확인
+                  if pm2 list | grep -q "${{ env.PM2_APP_NAME }}"; then
+                    curl -f http://localhost:3000 || curl -f http://localhost
+                  else
+                    curl -f http://localhost
+                  fi
+
+            - name: 🧹 Cleanup old backups
+              run: |
+                  cd $(dirname ${{ env.WEB_DIR }})
+                  sudo find . -name "html.backup.*" -type d -mtime +7 -exec rm -rf {} + 2>/dev/null || true
+              continue-on-error: true
+
+            - name: 📊 Deployment summary
               if: always()
               run: |
+                  echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+                  echo "- **Timestamp:** $(date)" >> $GITHUB_STEP_SUMMARY
+
                   if [ ${{ job.status }} == 'success' ]; then
-                    echo "✅ Deployment successful!"
+                    echo "✅ **Deployment successful!**" >> $GITHUB_STEP_SUMMARY
+                    echo "🌐 **Site URL:** http://your-domain.com" >> $GITHUB_STEP_SUMMARY
                   else
-                    echo "❌ Deployment failed!"
-                    exit 1
+                    echo "❌ **Deployment failed!**" >> $GITHUB_STEP_SUMMARY
+                  fi
+
+                  # PM2 상태 확인
+                  if command -v pm2 &> /dev/null; then
+                    echo "### PM2 Status" >> $GITHUB_STEP_SUMMARY
+                    echo '\`\`\`' >> $GITHUB_STEP_SUMMARY
+                    pm2 list >> $GITHUB_STEP_SUMMARY
+                    echo '\`\`\`' >> $GITHUB_STEP_SUMMARY
                   fi
