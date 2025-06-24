@@ -1,0 +1,56 @@
+name: Deploy with PM2 (Alternative)
+
+on:
+    push:
+        branches: [main, master]
+    workflow_dispatch:
+
+jobs:
+    deploy:
+        runs-on: self-hosted
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "18"
+                  cache: "npm"
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Build application
+              run: npm run build
+              env:
+                  NODE_ENV: production
+
+            - name: Stop existing PM2 process
+              run: |
+                  pm2 stop washer-app || true
+                  pm2 delete washer-app || true
+              continue-on-error: true
+
+            - name: Deploy application
+              run: |
+                  sudo rm -rf /var/www/html/*
+                  sudo cp -r .next/standalone/* /var/www/html/
+                  sudo cp -r .next/static /var/www/html/.next/
+                  sudo cp -r public /var/www/html/
+                  sudo chown -R $USER:$USER /var/www/html
+
+            - name: Start application with PM2
+              run: |
+                  cd /var/www/html
+                  pm2 start server.js --name washer-app
+                  pm2 save
+
+            - name: Reload nginx
+              run: sudo systemctl reload nginx
+
+            - name: Health check
+              run: |
+                  sleep 10
+                  curl -f http://localhost:3000 || exit 1
