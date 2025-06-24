@@ -77,6 +77,9 @@ jobs:
                   echo ""
                   echo "=== Static Directory ==="
                   ls -la .next/static/ || echo "No static directory"
+                  echo ""
+                  echo "=== Server Traces ==="
+                  ls -la .next/server/ || echo "No server directory"
 
             - name: 🛑 Stop existing PM2 process
               run: |
@@ -96,22 +99,23 @@ jobs:
             - name: 🗑️ Clear web directory
               run: sudo rm -rf ${{ env.WEB_DIR }}/*
 
-            - name: 📂 Deploy files (Fixed)
+            - name: 📂 Deploy files (Complete Next.js Structure)
               run: |
                   # Next.js standalone 배포
                   if [ -d ".next/standalone" ]; then
                     echo "✅ Deploying Next.js standalone..."
                     
-                    # 1. standalone 파일들 복사
+                    # 1. standalone 파일들 복사 (server.js, package.json, node_modules 등)
                     sudo cp -r .next/standalone/* ${{ env.WEB_DIR }}/
                     
-                    # 2. static 파일들을 올바른 위치에 복사
-                    sudo mkdir -p ${{ env.WEB_DIR }}/.next
-                    sudo cp -r .next/static ${{ env.WEB_DIR }}/.next/
+                    # 2. 전체 .next 디렉토리를 standalone의 .next로 복사 (빌드 파일들 포함)
+                    sudo rm -rf ${{ env.WEB_DIR }}/.next
+                    sudo cp -r .next ${{ env.WEB_DIR }}/
                     
                     # 3. public 파일들 복사
                     if [ -d "public" ]; then
-                      sudo cp -r public/* ${{ env.WEB_DIR }}/public/ 2>/dev/null || sudo mkdir -p ${{ env.WEB_DIR }}/public
+                      sudo rm -rf ${{ env.WEB_DIR }}/public
+                      sudo cp -r public ${{ env.WEB_DIR }}/
                     fi
                     
                     # 4. 배포된 파일 구조 확인
@@ -119,7 +123,13 @@ jobs:
                     ls -la ${{ env.WEB_DIR }}/
                     echo ""
                     echo "=== .next Directory in Deployment ==="
-                    ls -la ${{ env.WEB_DIR }}/.next/ || echo "No .next directory"
+                    ls -la ${{ env.WEB_DIR }}/.next/
+                    echo ""
+                    echo "=== .next/server Directory ==="
+                    ls -la ${{ env.WEB_DIR }}/.next/server/ || echo "No server directory"
+                    echo ""
+                    echo "=== .next/static Directory ==="
+                    ls -la ${{ env.WEB_DIR }}/.next/static/ || echo "No static directory"
                     
                     # 5. PM2로 Next.js 서버 시작
                     cd ${{ env.WEB_DIR }}
@@ -174,23 +184,30 @@ jobs:
             - name: ✅ Health check with improved error handling
               run: |
                   echo "🔍 Starting health check..."
-                  sleep 10
+                  sleep 15
 
                   # PM2 앱 상태 확인
                   if pm2 list | grep -q "${{ env.PM2_APP_NAME }}"; then
                     echo "✅ PM2 process is running"
                     
                     # PM2 앱이 실제로 응답하는지 확인
-                    if curl -f -s --connect-timeout 5 http://localhost:3000 > /dev/null; then
+                    if curl -f -s --connect-timeout 10 http://localhost:3000 > /dev/null; then
                       echo "✅ Next.js server is responding on port 3000"
                     else
                       echo "❌ Next.js server not responding on port 3000"
                       echo "PM2 logs:"
-                      pm2 logs ${{ env.PM2_APP_NAME }} --lines 10
+                      pm2 logs ${{ env.PM2_APP_NAME }} --lines 20
+                      echo "Checking if server is still starting..."
+                      sleep 10
+                      if curl -f -s --connect-timeout 10 http://localhost:3000 > /dev/null; then
+                        echo "✅ Next.js server is now responding (took longer to start)"
+                      else
+                        echo "❌ Next.js server still not responding"
+                      fi
                     fi
                     
                     # nginx를 통한 접근 확인
-                    if curl -f -s --connect-timeout 5 http://localhost > /dev/null; then
+                    if curl -f -s --connect-timeout 10 http://localhost > /dev/null; then
                       echo "✅ Nginx is serving the application"
                     else
                       echo "❌ Nginx not serving properly"
@@ -202,7 +219,7 @@ jobs:
                     echo "❌ PM2 process not found"
                     
                     # 정적 파일 배포인 경우 nginx만 확인
-                    if curl -f -s --connect-timeout 5 http://localhost > /dev/null; then
+                    if curl -f -s --connect-timeout 10 http://localhost > /dev/null; then
                       echo "✅ Static files served by nginx"
                     else
                       echo "❌ Static files not accessible"
