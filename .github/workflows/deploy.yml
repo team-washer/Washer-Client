@@ -84,18 +84,19 @@ jobs:
               run: |
                   # Next.js standalone 배포
                   if [ -d ".next/standalone" ]; then
-                    echo "Deploying Next.js standalone..."
+                    echo "✅ Deploying Next.js standalone..."
                     sudo cp -r .next/standalone/* ${{ env.WEB_DIR }}/
                     sudo cp -r .next/static ${{ env.WEB_DIR }}/.next/
                     sudo cp -r public ${{ env.WEB_DIR }}/
                     
                     # PM2로 Next.js 서버 시작
                     cd ${{ env.WEB_DIR }}
+                    echo "🚀 Starting PM2 process..."
                     pm2 start server.js --name ${{ env.PM2_APP_NAME }} --env production
                     pm2 save
                     
                   else
-                    echo "Deploying static files..."
+                    echo "📁 Deploying static files..."
                     # 정적 파일 배포 (export가 있는 경우)
                     if [ -d "out" ]; then
                       sudo cp -r out/* ${{ env.WEB_DIR }}/
@@ -115,14 +116,62 @@ jobs:
                   sudo nginx -t
                   sudo systemctl reload nginx
 
-            - name: ✅ Health check
+            - name: 🔍 Debug deployment status
               run: |
-                  sleep 5
-                  # PM2 앱이 실행 중인지 확인
+                  echo "=== PM2 Status ==="
+                  pm2 list
+                  echo ""
+                  echo "=== PM2 Logs (last 20 lines) ==="
+                  pm2 logs ${{ env.PM2_APP_NAME }} --lines 20 || echo "No PM2 logs available"
+                  echo ""
+                  echo "=== Web Directory Contents ==="
+                  ls -la ${{ env.WEB_DIR }}
+                  echo ""
+                  echo "=== Nginx Status ==="
+                  sudo systemctl status nginx --no-pager -l
+                  echo ""
+                  echo "=== Port Usage ==="
+                  sudo netstat -tlnp | grep -E ':80|:3000' || echo "No processes on ports 80/3000"
+
+            - name: ✅ Health check with improved error handling
+              run: |
+                  echo "🔍 Starting health check..."
+                  sleep 10
+
+                  # PM2 앱 상태 확인
                   if pm2 list | grep -q "${{ env.PM2_APP_NAME }}"; then
-                    curl -f http://localhost:3000 || curl -f http://localhost
+                    echo "✅ PM2 process is running"
+                    
+                    # PM2 앱이 실제로 ���답하는지 확인
+                    if curl -f -s --connect-timeout 5 http://localhost:3000 > /dev/null; then
+                      echo "✅ Next.js server is responding on port 3000"
+                    else
+                      echo "❌ Next.js server not responding on port 3000"
+                      echo "PM2 logs:"
+                      pm2 logs ${{ env.PM2_APP_NAME }} --lines 10
+                    fi
+                    
+                    # nginx를 통한 접근 확인
+                    if curl -f -s --connect-timeout 5 http://localhost > /dev/null; then
+                      echo "✅ Nginx is serving the application"
+                    else
+                      echo "❌ Nginx not serving properly"
+                      echo "Nginx error log:"
+                      sudo tail -10 /var/log/nginx/error.log || echo "No nginx error log"
+                    fi
+                    
                   else
-                    curl -f http://localhost
+                    echo "❌ PM2 process not found"
+                    
+                    # 정적 파일 배포인 경우 nginx만 확인
+                    if curl -f -s --connect-timeout 5 http://localhost > /dev/null; then
+                      echo "✅ Static files served by nginx"
+                    else
+                      echo "❌ Static files not accessible"
+                      echo "Nginx error log:"
+                      sudo tail -10 /var/log/nginx/error.log || echo "No nginx error log"
+                      exit 1
+                    fi
                   fi
 
             - name: 🧹 Cleanup old backups
@@ -154,3 +203,10 @@ jobs:
                     pm2 list >> $GITHUB_STEP_SUMMARY
                     echo '\`\`\`' >> $GITHUB_STEP_SUMMARY
                   fi
+
+                  # 시스템 상태 확인
+                  echo "### System Status" >> $GITHUB_STEP_SUMMARY
+                  echo '\`\`\`' >> $GITHUB_STEP_SUMMARY
+                  echo "Nginx: $(sudo systemctl is-active nginx)" >> $GITHUB_STEP_SUMMARY
+                  echo "Disk usage: $(df -h ${{ env.WEB_DIR }} | tail -1)" >> $GITHUB_STEP_SUMMARY
+                  echo '\`\`\`' >> $GITHUB_STEP_SUMMARY
