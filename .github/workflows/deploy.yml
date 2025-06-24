@@ -25,10 +25,16 @@ jobs:
               uses: actions/setup-node@v4
               with:
                   node-version: ${{ env.NODE_VERSION }}
-                  cache: "npm"
 
             - name: 📥 Install dependencies
-              run: npm ci
+              run: |
+                  if [ -f "package-lock.json" ] || [ -f "npm-shrinkwrap.json" ]; then
+                    npm ci
+                  elif [ -f "yarn.lock" ]; then
+                    yarn install --frozen-lockfile
+                  else
+                    npm install
+                  fi
 
             - name: 🧪 Run tests
               run: npm test --if-present
