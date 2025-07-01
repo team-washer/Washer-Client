@@ -60,6 +60,9 @@
     /* iOS Safari에서 bounce 효과 방지 */
     overscroll-behavior: none;
     -webkit-overflow-scrolling: touch;
+    ::-webkit-scrollbar{
+      width: 0px;
+    }
   }
 
   /* 모바일 반응형 개선 */
