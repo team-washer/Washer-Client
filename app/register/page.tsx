@@ -22,6 +22,7 @@ import {
   Shield,
   FileText,
   Lock,
+  Clock,
 } from "lucide-react"
 import { useReservationStore, type GenderType } from "@/lib/reservation-store"
 import { useToast } from "@/components/ui/use-toast"
@@ -54,6 +55,8 @@ export default function RegisterPage() {
   const [verificationCode, setVerificationCode] = useState("")
   const [sentCode, setSentCode] = useState("")
   const [passwordError, setPasswordError] = useState("")
+  const [passwordMatch, setPasswordMatch] = useState(true)
+  const [verificationTimer, setVerificationTimer] = useState(0)
 
   const stepConfig = {
     name: { title: "이름이 무엇인가요?", description: "실명을 입력해주세요.", icon: User },
@@ -107,6 +110,16 @@ export default function RegisterPage() {
     }
   }, [currentStep])
 
+  // 인증번호 타이머
+  useEffect(() => {
+    if (verificationTimer > 0) {
+      const timer = setTimeout(() => {
+        setVerificationTimer(verificationTimer - 1)
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [verificationTimer])
+
   // 성별에 따른 호실 옵션 생성
   const getRoomOptions = (gender: GenderType | "") => {
     if (gender === "male") {
@@ -143,6 +156,12 @@ export default function RegisterPage() {
     return ""
   }
 
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = seconds % 60
+    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`
+  }
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
 
@@ -154,6 +173,14 @@ export default function RegisterPage() {
     } else if (name === "password") {
       setFormData((prev) => ({ ...prev, [name]: value }))
       setPasswordError(getPasswordErrorMessage(value))
+      // 비밀번호 확인과 일치 여부 체크
+      if (formData.confirmPassword) {
+        setPasswordMatch(value === formData.confirmPassword)
+      }
+    } else if (name === "confirmPassword") {
+      setFormData((prev) => ({ ...prev, [name]: value }))
+      // 비밀번호와 일치 여부 체크
+      setPasswordMatch(formData.password === value)
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }))
     }
@@ -216,6 +243,9 @@ export default function RegisterPage() {
       setIsVerifying(true)
       await authApi.sendSignupVerification(fullEmail)
 
+      // 3분 타이머 시작
+      setVerificationTimer(180) // 3분 = 180초
+
       toast({
         title: "인증코드 발송",
         description: `${fullEmail}로 인증코드를 발송했습니다.`,
@@ -238,6 +268,7 @@ export default function RegisterPage() {
     try {
       await authApi.verifySignupEmail(fullEmail, verificationCode)
       setIsVerified(true)
+      setVerificationTimer(0) // 타이머 중지
       toast({
         title: "인증 완료",
         description: "이메일 인증이 완료되었습니다.",
@@ -509,6 +540,19 @@ export default function RegisterPage() {
               maxLength={5}
               autoFocus
             />
+            {verificationTimer > 0 && (
+              <div className="text-center">
+                <div className="inline-flex items-center space-x-2 text-orange-600">
+                  <Clock className="h-4 w-4" />
+                  <span className="text-sm font-medium">남은 시간: {formatTime(verificationTimer)}</span>
+                </div>
+              </div>
+            )}
+            {verificationTimer === 0 && currentStep === "verification" && (
+              <div className="text-center">
+                <p className="text-sm text-red-500">인증 시간이 만료되었습니다. 다시 발송해주세요.</p>
+              </div>
+            )}
             {isVerifying && (
               <div className="text-center">
                 <div className="inline-flex items-center space-x-2 text-gray-500">
@@ -576,15 +620,27 @@ export default function RegisterPage() {
                 <p className="text-sm text-green-600">✓ 비밀번호 조건을 만족합니다</p>
               )}
             </div>
-            <Input
-              type="password"
-              placeholder="비밀번호 확인"
-              value={formData.confirmPassword}
-              name="confirmPassword"
-              onChange={handleInputChange}
-              onKeyPress={handleKeyPress}
-              className="text-base p-4 border-2 border-[#A8C2FF] focus-visible:ring-[#86A9FF] focus-visible:border-[#86A9FF] rounded-lg"
-            />
+            <div className="space-y-2">
+              <Input
+                type="password"
+                placeholder="비밀번호 확인"
+                value={formData.confirmPassword}
+                name="confirmPassword"
+                onChange={handleInputChange}
+                onKeyPress={handleKeyPress}
+                className={`text-base p-4 border-2 focus-visible:ring-[#86A9FF] rounded-lg ${
+                  formData.confirmPassword && !passwordMatch
+                    ? "border-red-500 focus-visible:border-red-500"
+                    : "border-[#A8C2FF] focus-visible:border-[#86A9FF]"
+                }`}
+              />
+              {formData.confirmPassword && !passwordMatch && (
+                <p className="text-sm text-red-500">비밀번호가 일치하지 않습니다</p>
+              )}
+              {formData.confirmPassword && passwordMatch && formData.password && (
+                <p className="text-sm text-green-600">✓ 비밀번호가 일치합니다</p>
+              )}
+            </div>
             <p className="text-xs text-gray-500">
               영문 대소문자, 숫자, 특수문자를 각각 최소 1자 이상 포함한 8자리 이상
             </p>
@@ -618,7 +674,7 @@ export default function RegisterPage() {
   const IconComponent = currentConfig?.icon
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#F5F8FF] via-white to-[#EDF2FF] p-4">
+    <div className="h-screen flex items-center justify-center bg-gradient-to-br from-[#F5F8FF] via-white to-[#EDF2FF] p-4 overflow-hidden">
       <Card className="w-full max-w-md border-0 shadow-xl bg-white/95 backdrop-blur-sm">
         {currentStep !== "welcome" && (
           <CardHeader className="text-center pb-4">
@@ -668,7 +724,7 @@ export default function RegisterPage() {
             {currentStep !== "complete" && (
               <Button
                 onClick={handleNext}
-                disabled={!canProceed() || isVerifying}
+                disabled={!canProceed() || isVerifying || (currentStep === "verification" && verificationTimer === 0)}
                 className="bg-gradient-to-r from-[#86A9FF] to-[#6487DB] hover:from-[#6487DB] hover:to-[#86A9FF] text-white rounded-lg px-4 py-2 disabled:opacity-50"
               >
                 {currentStep === "email"

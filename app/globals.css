@@ -133,16 +133,7 @@
 
   /* 터치 디바이스 최적화 */
   @media (hover: none) and (pointer: coarse) {
-    button,
-    .btn {
-      min-height: 44px;
-      min-width: 44px;
-    }
-
-    /* 터치 영역 확대 */
     .touch-target {
-      min-height: 44px;
-      min-width: 44px;
       display: flex;
       align-items: center;
       justify-content: center;

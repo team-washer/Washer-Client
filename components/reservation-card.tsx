@@ -37,11 +37,6 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
     try {
       // serverId가 있으면 사용, 없으면 일반 id 사용
       const reservationIdToConfirm = reservation.serverId || reservation.id
-      console.log(`✅ Attempting to confirm reservation:`, {
-        clientId: reservation.id,
-        serverId: reservation.serverId,
-        usingId: reservationIdToConfirm,
-      })
 
       const response = await reservationApi.confirmReservation(reservationIdToConfirm)
 
@@ -86,11 +81,6 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
     try {
       // serverId가 있으면 사용, 없으면 일반 id 사용
       const reservationIdToDelete = reservation.serverId || reservation.id
-      console.log(`🗑️ Attempting to delete reservation:`, {
-        clientId: reservation.id,
-        serverId: reservation.serverId,
-        usingId: reservationIdToDelete,
-      })
 
       const response = await reservationApi.deleteReservation(reservationIdToDelete)
 

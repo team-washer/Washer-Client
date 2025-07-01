@@ -26,13 +26,6 @@ export function Navbar() {
     const id = localStorage.getItem("studentId") || ""
     const token = tokenManager.getToken()
 
-    console.log("🔍 Navbar useEffect - Auth state check:", {
-      loggedIn,
-      hasId: !!id,
-      hasToken: !!token,
-      tokenValid: token && token !== "null" && token !== "undefined",
-    })
-
     setStudentId(id)
     setIsAuthenticated(loggedIn)
 
@@ -41,26 +34,16 @@ export function Navbar() {
       const userRole = roleManager.getRole()
       const isAdminUser = roleManager.isAdmin()
 
-      console.log(`🔍 User role check:`, {
-        role: userRole,
-        isAdmin: isAdminUser,
-        hasRole: roleManager.hasRole(),
-      })
-
       setIsAdmin(isAdminUser)
 
       // 유효한 토큰이 있을 때만 사용자 정보 가져오기
-      console.log("🔄 Fetching user info on navbar mount for:", id)
       fetchMyInfo(id)
         .then(() => {
           const user = getCurrentUser()
-          console.log("✅ User info loaded in navbar:", user)
         })
         .catch((error) => {
           console.error("❌ Failed to fetch user info in navbar:", error)
         })
-    } else {
-      console.log("⚠️ Skipping user info fetch - missing auth requirements")
     }
   }, [pathname, fetchMyInfo, getCurrentUser])
 

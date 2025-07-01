@@ -26,15 +26,10 @@ export default function LoginPage() {
     rememberMe: false,
   })
   const { fetchMyInfo } = useReservationStore()
-  const [passwordValidation, setPasswordValidation] = useState({
-    isValid: false,
-    errors: [] as string[],
-  })
 
   useEffect(() => {
     // 기존 토큰 확인
     if (tokenManager.hasToken()) {
-      console.log("🔑 Existing token found, redirecting to home")
       router.push("/")
       return
     }
@@ -81,11 +76,6 @@ export default function LoginPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
-
-    if (name === "password") {
-      const validation = validatePassword(value)
-      setPasswordValidation(validation)
-    }
   }
 
   const handleRememberMeChange = (checked: boolean) => {
@@ -93,8 +83,6 @@ export default function LoginPage() {
   }
 
   const getDetailedErrorMessage = (error: any): string => {
-    console.log("🔍 Analyzing error:", error)
-
     // 네트워크 오류 체크
     if (!navigator.onLine) {
       return "인터넷 연결을 확인해주세요."
@@ -107,8 +95,6 @@ export default function LoginPage() {
 
     // API 응답 오류 (서버에서 온 응답)
     if (error?.status) {
-      console.log(`📡 Server responded with status: ${error.status}`)
-
       switch (error.status) {
         case 400:
           return "입력 정보가 올바르지 않습니다."
@@ -138,7 +124,6 @@ export default function LoginPage() {
     // 메시지가 있는 경우 더 자세히 분석
     if (error?.message) {
       const message = error.message.toLowerCase()
-      console.log(`📝 Error message: ${error.message}`)
 
       if (message.includes("failed to fetch") || message.includes("network error")) {
         return "서버에 연결할 수 없습니다. 네트워크 상태를 확인해주세요."
@@ -165,18 +150,23 @@ export default function LoginPage() {
     }
 
     // 기본 오류 메시지
-    console.log("❓ Unknown error type:", typeof error, error)
     return "로그인 중 알 수 없는 오류가 발생했습니다."
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // 비밀번호 유효성 검사
-    if (!passwordValidation.isValid) {
+    // 8자리 미만이면 여기서 걸러짐 (버튼이 비활성화되어 있어야 함)
+    if (formData.password.length < 8) {
+      return
+    }
+
+    // 전체 비밀번호 검증
+    const validation = validatePassword(formData.password)
+    if (!validation.isValid) {
       toast({
         title: "비밀번호 오류",
-        description: `비밀번호는 ${passwordValidation.errors.join(", ")}을(를) 포함해야 합니다.`,
+        description: `비밀번호는 ${validation.errors.join(", ")}을(를) 포함해야 합니다.`,
         variant: "destructive",
       })
       return
@@ -187,11 +177,7 @@ export default function LoginPage() {
     const fullEmail = `${formData.emailPrefix}@gsm.hs.kr`
 
     try {
-      console.log(`🔐 Starting login process for: ${fullEmail}`)
-
       const response = await authApi.signin(fullEmail, formData.password)
-
-      console.log(`✅ Login successful for: ${fullEmail}`)
 
       // 로그인 상태 저장 (기존 코드와 호환성을 위해)
       localStorage.setItem("isLoggedIn", "true")
@@ -206,14 +192,9 @@ export default function LoginPage() {
         localStorage.removeItem("rememberMe")
       }
 
-      // 토큰 확인
-      console.log(`🔍 Token verification after login: ${tokenManager.hasToken() ? "✅ Found" : "❌ Missing"}`)
-
       // 로그인 성공 후 즉시 사용자 정보 가져오기
       try {
-        console.log("🔄 Fetching user info after login...")
         await fetchMyInfo(fullEmail)
-        console.log("✅ User info fetched successfully after login")
       } catch (userInfoError) {
         console.error("❌ Failed to fetch user info after login:", userInfoError)
         // 사용자 정보 가져오기 실패해도 로그인은 진행
@@ -226,17 +207,7 @@ export default function LoginPage() {
 
       router.push("/")
     } catch (error: any) {
-      console.error("❌ Login error details:", {
-        error,
-        type: typeof error,
-        status: error?.status,
-        message: error?.message,
-        name: error?.name,
-        stack: error?.stack,
-      })
-
       const errorMessage = getDetailedErrorMessage(error)
-      console.log("🔔 Final error message:", errorMessage)
 
       toast({
         title: "로그인 실패",
@@ -249,7 +220,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F5F8FF] p-4">
+    <div className="h-screen flex items-center justify-center bg-white p-4 overflow-hidden">
       <Card className="w-full max-w-md border-[#EDF2FF] shadow-lg">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-2">
@@ -270,7 +241,7 @@ export default function LoginPage() {
                 <Input
                   id="emailPrefix"
                   name="emailPrefix"
-                  placeholder="s2xxxx"
+                  placeholder=""
                   required
                   value={formData.emailPrefix}
                   onChange={handleChange}
@@ -313,21 +284,16 @@ export default function LoginPage() {
                 </Button>
               </div>
             </div>
-            {formData.password && !passwordValidation.isValid && (
-              <div className="text-sm text-red-500 mt-1">
-                <p>비밀번호: {passwordValidation.errors.join(", ")} 필요</p>
-              </div>
-            )}
 
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="rememberMe"
                 checked={formData.rememberMe}
                 onCheckedChange={handleRememberMeChange}
-                className="border-[#A8C2FF] data-[state=checked]:bg-[#86A9FF] data-[state=checked]:border-[#86A9FF]"
+                className="border-[#A8C2FF] data-[state=checked]:bg-[#86A9FF] data-[state=checked]:border-[#86A9FF] h-4 w-4 md:h-4 md:w-4"
                 disabled={isLoading}
               />
-              <Label htmlFor="rememberMe" className="text-sm">
+              <Label htmlFor="rememberMe" className="text-sm cursor-pointer">
                 로그인 유지
               </Label>
             </div>
@@ -335,7 +301,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               className="w-full bg-[#86A9FF] hover:bg-[#6487DB] text-base py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isLoading || !formData.emailPrefix || !formData.password}
+              disabled={isLoading || !formData.emailPrefix || formData.password.length < 8}
             >
               {isLoading ? "로그인 중..." : "로그인"}
             </Button>

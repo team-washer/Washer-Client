@@ -1,4 +1,4 @@
-const BASE_URL = "https://washer-server.zzunipark.com"
+const BASE_URL = "https://api.washer-gsm.com"
 
 // API 응답 타입 정의 - 로그인 응답 구조 업데이트
 export interface AuthResponse {
@@ -122,6 +122,25 @@ export interface OutOfOrderDevice {
 export interface OutOfOrderResponse {
   success: boolean
   data: OutOfOrderDevice[]
+  message: string
+  timestamp: string
+}
+
+// 기기 히스토리 타입 정의 추가 (OutOfOrderResponse 타입 정의 다음에 추가)
+export interface MachineHistoryItem {
+  status: "waiting" | "reserved" | "confirmed" | "running" | "cancelled" | "completed"
+  createdAt: string
+  pausedSince: string | null
+  confirmedAt: string | null
+  startedAt: string | null
+  completedAt: string | null
+  cancelledAt: string | null
+  machineLabel: string
+}
+
+export interface MachineHistoryResponse {
+  success: boolean
+  data: MachineHistoryItem[]
   message: string
   timestamp: string
 }
@@ -445,30 +464,104 @@ const safeTokenLog = (token: string | null | undefined, prefix = ""): string => 
   return `${prefix}${token.substring(0, 20)}...`
 }
 
+// 로그아웃 및 리다이렉트 헬퍼 함수
+const forceLogout = async (reason = "Authentication failed") => {
+  if (typeof window !== "undefined") {
+    // auth-utils에서 로그인 상태를 false로 설정
+    try {
+      const { authStore } = await import("./auth-utils")
+      authStore.getState().setIsLoggedIn(false)
+    } catch (error) {
+      console.error("❌ Failed to update auth state:", error)
+    }
+
+    // 로컬스토리지 완전 초기화
+    localStorage.clear()
+
+    // 세션스토리지도 초기화
+    sessionStorage.clear()
+
+    // 쿠키도 초기화 (만약 있다면)
+    document.cookie.split(";").forEach((c) => {
+      const eqPos = c.indexOf("=")
+      const name = eqPos > -1 ? c.substr(0, eqPos) : c
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
+    })
+
+    // 현재 페이지가 로그인 페이지가 아닌 경우에만 리다이렉트
+    if (window.location.pathname !== "/login") {
+      window.location.href = "/login"
+      // 강제 새로고침으로 완전히 초기화
+      setTimeout(() => {
+        window.location.reload()
+      }, 100)
+    }
+  }
+}
+
 // 간단한 토큰 관리
 export const tokenManager = {
   getToken: () => {
     if (typeof window === "undefined") return null
     const token = localStorage.getItem("authToken")
-    console.log(`🔑 Getting token: ${safeTokenLog(token)}`)
     return token
   },
 
-  setToken: (token: string) => {
+  setToken: async (token: string) => {
     if (typeof window === "undefined") return
-    console.log(`💾 Storing token: ${safeTokenLog(token)}`)
     localStorage.setItem("authToken", token)
+
+    // 토큰 설정 시 isLoggedIn을 true로 설정
+    try {
+      const { authStore } = await import("./auth-utils")
+      authStore.getState().setIsLoggedIn(true)
+    } catch (error) {
+      console.error("❌ Failed to update auth state:", error)
+    }
   },
 
-  clearToken: () => {
+  clearToken: async () => {
     if (typeof window === "undefined") return
-    console.log(`🗑️ Clearing token`)
     localStorage.removeItem("authToken")
+
+    // 토큰 삭제 시 isLoggedIn을 false로 설정
+    try {
+      const { authStore } = await import("./auth-utils")
+      authStore.getState().setIsLoggedIn(false)
+    } catch (error) {
+      console.error("❌ Failed to update auth state:", error)
+    }
   },
 
   hasToken: () => {
     const token = tokenManager.getToken()
     return token && token !== "null" && token !== "undefined"
+  },
+
+  // 토큰 유효성 검사 및 로그인 상태 동기화
+  validateAndSyncAuth: async () => {
+    const token = tokenManager.getToken()
+    const hasValidToken = token && token !== "null" && token !== "undefined"
+
+    try {
+      const { authStore } = await import("./auth-utils")
+      const currentLoginState = authStore.getState().isLoggedIn
+
+      // 토큰 상태와 로그인 상태가 일치하지 않으면 동기화
+      if (hasValidToken !== currentLoginState) {
+        authStore.getState().setIsLoggedIn(hasValidToken)
+      }
+
+      // 토큰이 없으면 강제 로그아웃
+      if (!hasValidToken && currentLoginState) {
+        await forceLogout("Token validation failed")
+      }
+
+      return hasValidToken
+    } catch (error) {
+      console.error("❌ Failed to validate and sync auth:", error)
+      return false
+    }
   },
 }
 
@@ -481,18 +574,21 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
     "ngrok-skip-browser-warning": "true",
   }
 
-  if (!endpoint.includes("/auth/")) {
-    const token = tokenManager.getToken()
-    if (token && token !== "null") {
-      defaultHeaders.Authorization = `Bearer ${token}`
-      console.log(`🔑 Using Bearer token: Bearer ${safeTokenLog(token)}`)
-    } else {
-      console.log(`⚠️ No valid token available for ${endpoint}`)
-      if (typeof window !== "undefined") {
-        window.location.href = "/login"
-        return Promise.reject(new Error("No access token"))
-      }
+  // 인증이 필요한 엔드포인트 체크
+  const isAuthEndpoint = endpoint.includes("/auth/")
+  const needsAuth = !isAuthEndpoint
+
+  if (needsAuth) {
+    // 토큰 유효성 검사 및 상태 동기화
+    const isValidAuth = await tokenManager.validateAndSyncAuth()
+
+    if (!isValidAuth) {
+      await forceLogout("No valid authentication")
+      return Promise.reject(new Error("No access token"))
     }
+
+    const token = tokenManager.getToken()
+    defaultHeaders.Authorization = `Bearer ${token}`
   }
 
   const config: RequestInit = {
@@ -506,27 +602,19 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
     },
   }
 
-  console.log(`🚀 API Request: ${config.method} ${url}`, {
-    headers: config.headers,
-    body: config.body,
-  })
-
   try {
     const response = await fetch(url, config)
 
-    console.log(`📡 API Response: ${response.status} ${response.statusText}`, {
-      url,
-      status: response.status,
-      headers: Object.fromEntries(response.headers.entries()),
-    })
-
-    if (response.status === 401 && !endpoint.includes("/auth/")) {
-      console.log("❌ Unauthorized, clearing token and redirecting to login")
-      tokenManager.clearToken()
-      if (typeof window !== "undefined") {
-        window.location.href = "/login"
-      }
+    // 401 Unauthorized 처리 - 즉시 로그아웃
+    if (response.status === 401 && needsAuth) {
+      await forceLogout("Authentication expired or invalid")
       throw new Error("Authentication failed")
+    }
+
+    // 403 Forbidden 처리 - 권한 없음
+    if (response.status === 403) {
+      await forceLogout("Insufficient permissions")
+      throw new Error("Access forbidden")
     }
 
     if (!response.ok) {
@@ -545,10 +633,8 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
       try {
         if (errorText.trim()) {
           errorData = JSON.parse(errorText)
-          console.log("📋 Parsed error data:", errorData)
         }
       } catch (parseError) {
-        console.log("⚠️ Error response is not JSON:", errorText)
         errorData = { message: errorText }
       }
 
@@ -565,8 +651,6 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
         errorMessage = `HTTP error! status: ${response.status}`
       }
 
-      console.log(`🚨 Final error message: "${errorMessage}"`)
-
       const apiError = {
         message: errorMessage,
         status: response.status,
@@ -581,24 +665,25 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
     }
 
     const responseText = await response.text()
-    console.log(`📄 Raw response text:`, responseText)
 
     if (!responseText.trim()) {
-      console.log(`⚠️ Empty response received`)
       return {} as T
     }
 
     try {
       const responseData = JSON.parse(responseText)
-      console.log(`✅ Parsed JSON response:`, responseData)
       return responseData
     } catch (parseError) {
       console.error(`❌ JSON parse error:`, parseError)
-      console.log(`📄 Response was not valid JSON:`, responseText)
       throw new Error(`서버에서 올바르지 않은 형식의 응답을 받았습니다: ${responseText}`)
     }
   } catch (error) {
     console.error(`💥 API Error:`, error)
+
+    // 네트워크 오류인 경우에도 로그아웃 처리 (서버 연결 불가 등)
+    if (error instanceof TypeError && error.message.includes("fetch")) {
+      await forceLogout("Network connection failed")
+    }
 
     // 이미 ApiError 객체인 경우 그대로 throw
     if (error && typeof error === "object" && "status" in error && "message" in error) {
@@ -646,35 +731,28 @@ export const authApi = {
   },
 
   signin: async (email: string, password: string) => {
-    console.log(`🔐 Attempting login for: ${email}`)
-
     try {
       const response = await apiRequest<AuthResponse>("/auth/signin", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       })
 
-      console.log(`📋 Login response received:`, response)
-
       // 새로운 응답 구조에 맞게 처리
       if (response && response.success && response.data) {
         const { accessToken, role } = response.data
 
         if (accessToken) {
-          console.log(`✅ Found accessToken in response.data`)
-          tokenManager.setToken(accessToken)
+          await tokenManager.setToken(accessToken)
 
           // 역할 정보 암호화하여 저장
           if (role === "ROLE_USER" || role === "ROLE_ADMIN") {
             const { roleManager } = await import("./auth-utils")
             roleManager.setRole(role)
-            console.log(`🔐 Role stored securely: ${role}`)
           }
 
           // 토큰 저장 확인
           setTimeout(() => {
             const storedToken = tokenManager.getToken()
-            console.log(`🔍 Token verification after storage: ${safeTokenLog(storedToken)}`)
           }, 100)
 
           return response
@@ -683,12 +761,9 @@ export const authApi = {
 
       // 기존 호환성을 위한 처리 (문자열 응답)
       if (typeof response === "string") {
-        console.log(`⚠️ Received string response:`, response)
-
         if (response.includes("성공") || response.includes("success")) {
-          console.log(`🔧 Creating temporary token for development`)
           const tempToken = `temp_token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-          tokenManager.setToken(tempToken)
+          await tokenManager.setToken(tempToken)
 
           // 기본 역할 설정 (개발용)
           const { roleManager } = await import("./auth-utils")
@@ -696,7 +771,6 @@ export const authApi = {
 
           setTimeout(() => {
             const storedToken = tokenManager.getToken()
-            console.log(`🔍 Token verification after storage: ${safeTokenLog(storedToken)}`)
           }, 100)
 
           return { success: true, token: tempToken }
@@ -728,63 +802,27 @@ export const authApi = {
   },
 
   logout: async () => {
-    tokenManager.clearToken()
-    // 역할 정보도 삭제
-    const { roleManager } = await import("./auth-utils")
-    roleManager.clearRole()
+    await forceLogout("User initiated logout")
   },
 }
 
 // Machine API 함수들
 export const machineApi = {
   getDevices: async (type?: "washer" | "dryer", floor?: string) => {
-    console.log(`🚀 getDevices called with params:`, { type, floor })
-
-    const token = tokenManager.getToken()
-    console.log(`🔍 Token check in getDevices:`, {
-      hasToken: !!token,
-      tokenLength: token?.length || 0,
-      tokenPreview: token ? `${token.substring(0, 10)}...` : "null",
-      isValidToken: token && token !== "null" && token !== "undefined",
-    })
-
-    if (!token || token === "null" || token === "undefined") {
-      console.error("❌ No valid token available for getDevices")
-      throw new Error("인증 토큰이 없습니다. 다시 로그인해주세요.")
-    }
-
     const params = new URLSearchParams()
     if (type) {
       params.append("type", type)
-      console.log(`🔧 Added type parameter: ${type}`)
     }
     if (floor) {
       params.append("floor", floor)
-      console.log(`🔧 Added floor parameter: ${floor}`)
     }
 
     const queryString = params.toString()
     const endpoint = `/machine/devices${queryString ? `?${queryString}` : ""}`
 
-    console.log(`🚀 Final API call details:`, {
-      endpoint,
-      fullUrl: `${BASE_URL}${endpoint}`,
-      method: "GET",
-      hasAuthHeader: true,
-      authHeaderPreview: `Bearer ${token.substring(0, 10)}...`,
-    })
-
     try {
       const response = await apiRequest<DevicesResponse>(endpoint, {
         method: "GET",
-      })
-
-      console.log(`✅ getDevices response received:`, {
-        success: response?.success,
-        hasData: !!response?.data,
-        dataKeys: response?.data ? Object.keys(response.data) : [],
-        message: response?.message,
-        timestamp: response?.timestamp,
       })
 
       return response
@@ -814,28 +852,18 @@ export const machineApi = {
   },
 
   getOutOfOrderDevices: async (type?: "washer" | "dryer", floor?: string) => {
-    console.log(`🚀 getOutOfOrderDevices called with params:`, { type, floor })
-
     const params = new URLSearchParams()
     if (type) {
       params.append("type", type)
-      console.log(`🔧 Added type parameter: ${type}`)
     }
     if (floor) {
       // 층 정보를 "_4F", "_5F" 형식으로 변환
       const formattedFloor = floor.startsWith("_") ? floor : `_${floor}`
       params.append("floor", formattedFloor)
-      console.log(`🔧 Added floor parameter: ${formattedFloor}`)
     }
 
     const queryString = params.toString()
     const endpoint = `/machine/admin/out-of-order${queryString ? `?${queryString}` : ""}`
-
-    console.log(`🚀 Final out-of-order API call details:`, {
-      endpoint,
-      fullUrl: `${BASE_URL}${endpoint}`,
-      method: "GET",
-    })
 
     return apiRequest<OutOfOrderResponse>(endpoint, {
       method: "GET",
@@ -843,11 +871,15 @@ export const machineApi = {
   },
 
   updateOutOfOrderStatus: async (name: string, outOfOrder: boolean) => {
-    console.log(`🔧 Updating out-of-order status:`, { name, outOfOrder })
-
     return apiRequest<ReportResponse>("/machine/admin/out-of-order", {
       method: "PATCH",
       body: JSON.stringify({ name, outOfOrder }),
+    })
+  },
+
+  getHistory: async (machineId: number) => {
+    return apiRequest<MachineHistoryResponse>(`/machine/${machineId}/history`, {
+      method: "GET",
     })
   },
 }
@@ -855,37 +887,13 @@ export const machineApi = {
 // Reservation API 함수들
 export const reservationApi = {
   createReservation: async (machineId: number) => {
-    console.log(`📅 Creating reservation for machine: ${machineId}`)
-
-    const token = tokenManager.getToken()
-    console.log(`🔍 Token check for reservation:`, {
-      hasToken: !!token,
-      tokenLength: token?.length || 0,
-      tokenPreview: token ? `${token.substring(0, 10)}...` : "null",
-      isValidToken: token && token !== "null" && token !== "undefined",
-    })
-
-    if (!token || token === "null" || token === "undefined") {
-      console.error("❌ No valid token available for createReservation")
-      throw new Error("인증 토큰이 없습니다. 다시 로그인해주세요.")
-    }
-
     const endpoint = `/reservation/${machineId}`
-    console.log(`🚀 Reservation API call details:`, {
-      endpoint,
-      fullUrl: `${BASE_URL}${endpoint}`,
-      method: "POST",
-      machineId,
-      hasAuthHeader: true,
-      authHeaderPreview: `Bearer ${token.substring(0, 10)}...`,
-    })
 
     try {
       const response = await apiRequest<ReservationResponse>(endpoint, {
         method: "POST",
       })
 
-      console.log(`✅ createReservation response:`, response)
       return response
     } catch (error) {
       console.error(`❌ createReservation API error:`, error)
@@ -900,14 +908,12 @@ export const reservationApi = {
   },
 
   confirmReservation: async (reservationId: number) => {
-    console.log(`✅ Confirming reservation: ${reservationId}`)
     return apiRequest<ReservationResponse>(`/reservation/${reservationId}/confirm`, {
       method: "POST",
     })
   },
 
   deleteReservation: async (reservationId: number) => {
-    console.log(`🗑️ Deleting reservation: ${reservationId}`)
     return apiRequest<ReservationResponse>(`/reservation/${reservationId}`, {
       method: "DELETE",
     })
@@ -921,14 +927,12 @@ export const reservationApi = {
     const queryString = params.toString()
     const endpoint = `/reservation/admin/reservations${queryString ? `?${queryString}` : ""}`
 
-    console.log(`🔍 Getting admin reservations with endpoint: ${endpoint}`)
     return apiRequest<AdminReservationsResponse>(endpoint, {
       method: "GET",
     })
   },
 
   forceDeleteReservation: async (reservationId: number) => {
-    console.log(`🚫 Force deleting reservation: ${reservationId}`)
     return apiRequest<ReservationResponse>(`/reservation/admin/${reservationId}`, {
       method: "DELETE",
     })
@@ -938,7 +942,6 @@ export const reservationApi = {
 // User API 함수들
 export const userApi = {
   getMyInfo: async () => {
-    console.log(`🔍 Getting user info...`)
     return apiRequest<UserInfoResponse>("/user/me", {
       method: "GET",
     })
@@ -953,22 +956,17 @@ export const userApi = {
     const queryString = params.toString()
     const endpoint = `/user/admin/user/info${queryString ? `?${queryString}` : ""}`
 
-    console.log(`🔍 Getting admin users with endpoint: ${endpoint}`)
     return apiRequest<AdminUsersResponse>(endpoint, {
       method: "GET",
     })
   },
 
   restrictUser: async (userId: number, restrictionData: { period: string; restrictionReason: string }) => {
-    console.log(`🚫 Restricting user ${userId} with data:`, restrictionData)
-
     // 기간 형식을 서버가 기대하는 형식으로 변환
     const formattedData = {
       period: restrictionData.period,
       pestrictionReason: restrictionData.restrictionReason, // 명세서의 오타에 맞춤
     }
-
-    console.log(`🔧 Formatted restriction data:`, formattedData)
 
     return apiRequest<RestrictResponse>(`/user/admin/${userId}/restrict`, {
       method: "POST",
@@ -977,7 +975,6 @@ export const userApi = {
   },
 
   unrestrictUser: async (userId: number) => {
-    console.log(`✅ Unrestricting user ${userId}`)
     return apiRequest<RestrictResponse>(`/user/admin/${userId}/unrestrict`, {
       method: "POST",
     })
@@ -996,8 +993,6 @@ export interface User {
 }
 
 function convertServerUserToClient(serverUser: UserInfo): User {
-  console.log("🔄 Converting server user:", serverUser)
-
   return {
     id: serverUser.id,
     name: serverUser.name,

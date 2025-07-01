@@ -41,16 +41,30 @@ function convertServerMachineToClient(serverMachine: MachineDevice, type: Machin
   const locationMatch = serverMachine.label?.match(/-([LR]\d+)$/)
   const location = locationMatch ? locationMatch[1] : "R1"
 
-  // 기기 상태 결정
+  // 기기 상태 결정 - reservations 배열을 활용하여 더 정확한 상태 판단
   let status: MachineStatus = "available"
-  if (serverMachine.machineState === "run") {
-    status = "in-use"
-  } else if (
+
+  // 예약 정보가 있는지 확인
+  if (
     serverMachine.reservations &&
     Array.isArray(serverMachine.reservations) &&
     serverMachine.reservations.length > 0
   ) {
-    status = "reserved"
+    // 활성 예약이 있는지 확인 (waiting, reserved, confirmed, running)
+    const activeReservation = serverMachine.reservations.find(
+      (r) => r.status === "waiting" || r.status === "reserved" || r.status === "confirmed" || r.status === "running",
+    )
+
+    if (activeReservation) {
+      if (activeReservation.status === "running") {
+        status = "in-use"
+      } else {
+        status = "reserved"
+      }
+    }
+  } else if (serverMachine.machineState === "run") {
+    // 예약 정보가 없지만 기기가 작동 중인 경우
+    status = "in-use"
   }
 
   // 남은 시간 계산 - "HH:MM:SS" 형식을 초로 변환
@@ -58,10 +72,6 @@ function convertServerMachineToClient(serverMachine: MachineDevice, type: Machin
   if (serverMachine.remainingTime && serverMachine.remainingTime !== "00:00:00") {
     try {
       nextAvailableSeconds = parseTimeStringToSeconds(serverMachine.remainingTime)
-      console.log(`⏰ Calculated remaining time for ${serverMachine.label}:`, {
-        remainingTimeString: serverMachine.remainingTime,
-        calculatedSeconds: nextAvailableSeconds,
-      })
     } catch (error) {
       console.error(`❌ Failed to parse remaining time for ${serverMachine.label}:`, error)
     }
@@ -77,7 +87,7 @@ function convertServerMachineToClient(serverMachine: MachineDevice, type: Machin
     isOutOfOrder: serverMachine.isOutOfOrder || false,
     nextAvailableSeconds,
     operatingState: serverMachine.jobState,
-    reservations: serverMachine.reservations || [], // 예약 정보 추가
+    reservations: serverMachine.reservations || [], // 예약 정보 유지
   }
 }
 
@@ -111,13 +121,6 @@ function convertServerReservationToClient(
       // 일반적으로 세탁/건조 시간을 45분(2700초)로 가정
       const totalDuration = type === "washing" ? 2700 : 3600 // 세탁 45분, 건조 60분
       remainingSeconds = Math.max(0, totalDuration - elapsedSeconds)
-
-      console.log(`⏰ Calculated reservation remaining time:`, {
-        startTime: serverReservation.startTime,
-        elapsedSeconds,
-        remainingSeconds,
-        type,
-      })
     } catch (error) {
       console.error("❌ Failed to parse reservation start time:", error)
     }
@@ -259,6 +262,21 @@ interface ReservationStore {
   // 서버 API 함수들
   restrictUserOnServer: (userId: number, duration: string) => Promise<void>
   unrestrictUserOnServer: (userId: number) => Promise<void>
+
+  // 기기별 예약 가능 여부 확인 (호실 정보 고려)
+  canReserveMachine: (
+    machineId: string,
+    userRoomNumber: string,
+  ) => {
+    canReserve: boolean
+    reason: string
+  }
+
+  // 기기의 예약 호실 정보 가져오기 (서버 데이터 활용)
+  getMachineReservationRoom: (machineId: string) => string | null
+
+  // 기기의 예약 상태 정보 가져오기 (서버 데이터 활용)
+  getMachineReservationStatus: (machineId: string) => string | null
 }
 
 // 안전한 localStorage 접근을 위한 헬퍼
@@ -333,16 +351,10 @@ export const useReservationStore = create<ReservationStore>()(
 
       // 서버에서 기기 데이터 가져오기 - 예약 데이터는 fetchMyInfo에서만 처리
       fetchMachines: async () => {
-        console.log("🔄 Starting fetchMachines...")
         set({ isLoading: true })
 
         try {
           const token = tokenManager.getToken()
-          console.log(`🔍 Token check before API call:`, {
-            hasToken: !!token,
-            tokenLength: token?.length || 0,
-            tokenPreview: token ? `${token.substring(0, 10)}...` : "null",
-          })
 
           if (!token || token === "null") {
             console.error("❌ No valid token available for fetchMachines")
@@ -350,9 +362,7 @@ export const useReservationStore = create<ReservationStore>()(
             return
           }
 
-          console.log("📡 Calling machineApi.getDevices()...")
           const response = await machineApi.getDevices()
-          console.log("✅ Raw API response:", JSON.stringify(response, null, 2))
 
           if (!response?.success || !response.data) {
             console.error("❌ Invalid API response", response)
@@ -364,9 +374,7 @@ export const useReservationStore = create<ReservationStore>()(
 
           // 세탁기 데이터 변환 (예약 데이터는 제외)
           if (response.data.washer && Array.isArray(response.data.washer)) {
-            console.log(`🔄 Processing ${response.data.washer.length} washers...`)
             response.data.washer.forEach((washer, index) => {
-              console.log(`🔄 Converting washer ${index + 1}:`, washer)
               try {
                 // null 체크 추가
                 if (!washer) {
@@ -374,7 +382,6 @@ export const useReservationStore = create<ReservationStore>()(
                   return
                 }
                 const convertedMachine = convertServerMachineToClient(washer, "washing")
-                console.log(`✅ Converted washer:`, convertedMachine)
                 machines.push(convertedMachine)
               } catch (error) {
                 console.error(`❌ Error converting washer ${index + 1}:`, error)
@@ -385,9 +392,7 @@ export const useReservationStore = create<ReservationStore>()(
 
           // 건조기 데이터 변환 (예약 데이터는 제외)
           if (response.data.dryer && Array.isArray(response.data.dryer)) {
-            console.log(`🔄 Processing ${response.data.dryer.length} dryers...`)
             response.data.dryer.forEach((dryer, index) => {
-              console.log(`🔄 Converting dryer ${index + 1}:`, dryer)
               try {
                 // null 체크 추가
                 if (!dryer) {
@@ -395,7 +400,6 @@ export const useReservationStore = create<ReservationStore>()(
                   return
                 }
                 const convertedMachine = convertServerMachineToClient(dryer, "dryer")
-                console.log(`✅ Converted dryer:`, convertedMachine)
                 machines.push(convertedMachine)
               } catch (error) {
                 console.error(`❌ Error converting dryer ${index + 1}:`, error)
@@ -404,12 +408,6 @@ export const useReservationStore = create<ReservationStore>()(
             })
           }
 
-          console.log(`📊 Final processing results:`, {
-            totalMachines: machines.length,
-            washingMachines: machines.filter((m) => m.type === "washing").length,
-            dryers: machines.filter((m) => m.type === "dryer").length,
-          })
-
           // 기기 정보만 업데이트 (예약 정보는 건드리지 않음)
           set({
             machines,
@@ -417,7 +415,6 @@ export const useReservationStore = create<ReservationStore>()(
             isLoading: false,
           })
 
-          console.log(`✅ Successfully updated store with ${machines.length} machines`)
         } catch (error) {
           console.error("❌ Failed to fetch machines:", error)
           set({ isLoading: false })
@@ -426,19 +423,10 @@ export const useReservationStore = create<ReservationStore>()(
 
       // 서버에서 내 정보 가져오기 - 예약 정보만 여기서 처리
       fetchMyInfo: async (currentUserId: string) => {
-        console.log("🔄 Starting fetchMyInfo for userId:", currentUserId)
-
         // 토큰 검증 먼저 수행
         const token = tokenManager.getToken()
-        console.log(`🔍 Token check before fetchMyInfo:`, {
-          hasToken: !!token,
-          tokenLength: token?.length || 0,
-          tokenPreview: token ? `${token.substring(0, 10)}...` : "null",
-          isValidToken: token && token !== "null" && token !== "undefined",
-        })
 
-        if (!token || token === "null" || token === "undefined") {
-          console.log("⚠️ No valid token available for fetchMyInfo, skipping...")
+        if (!token || token === "null" || token === "undefined") {    
           set({ isLoading: false })
           return
         }
@@ -446,13 +434,10 @@ export const useReservationStore = create<ReservationStore>()(
         set({ isLoading: true })
 
         try {
-          console.log("📡 Calling userApi.getMyInfo()...")
           const response = await userApi.getMyInfo()
-          console.log("✅ Received user info from server:", response)
 
           if (response.success) {
             const userInfo = convertServerUserToClient(response.data, currentUserId)
-            console.log("🔄 Converted user info:", userInfo)
 
             // 현재 사용자 정보 설정
             set({ currentUserInfo: userInfo, isLoading: false })
@@ -464,10 +449,8 @@ export const useReservationStore = create<ReservationStore>()(
               if (existingUserIndex >= 0) {
                 const updatedUsers = [...state.users]
                 updatedUsers[existingUserIndex] = { ...updatedUsers[existingUserIndex], ...userInfo }
-                console.log("✅ Updated existing user:", updatedUsers[existingUserIndex])
                 return { users: updatedUsers }
               } else {
-                console.log("✅ Added new user:", userInfo)
                 return { users: [...state.users, userInfo] }
               }
             })
@@ -487,8 +470,6 @@ export const useReservationStore = create<ReservationStore>()(
                 message: "내 예약",
               }
 
-              console.log("✅ Setting user reservation:", reservation)
-
               // 예약 정보를 완전히 대체 (현재 사용자의 예약만)
               set((state) => {
                 const otherReservations = state.reservations.filter((r) => r.userId !== currentUserId)
@@ -498,13 +479,11 @@ export const useReservationStore = create<ReservationStore>()(
               })
             } else {
               // 예약이 없으면 현재 사용자의 예약 제거
-              console.log("✅ No reservation found, removing user reservations")
               set((state) => ({
                 reservations: state.reservations.filter((r) => r.userId !== currentUserId),
               }))
             }
 
-            console.log(`✅ Successfully processed user info for ${userInfo.id}`)
           } else {
             console.error("❌ Server returned success: false")
             set({ isLoading: false })
@@ -515,7 +494,6 @@ export const useReservationStore = create<ReservationStore>()(
 
           // 토큰 관련 오류인 경우 추가 처리
           if (error?.message?.includes("token") || error?.message?.includes("Authentication")) {
-            console.log("🔄 Token-related error, clearing invalid token")
             tokenManager.clearToken()
           }
         }
@@ -523,13 +501,10 @@ export const useReservationStore = create<ReservationStore>()(
 
       // 서버에서 사용자 목록 가져오기 (관리자용)
       fetchUsers: async (name?: string, gender?: "male" | "female", floor?: string) => {
-        console.log("🔄 Starting fetchUsers...")
         set({ isLoading: true })
 
         try {
-          console.log("📡 Calling userApi.getUsers()...")
           const response = await userApi.getUsers(name, gender, floor)
-          console.log("✅ Received users from server:", response)
 
           if (response.success) {
             const users = response.data
@@ -541,7 +516,6 @@ export const useReservationStore = create<ReservationStore>()(
               isLoading: false,
             })
 
-            console.log(`✅ Updated ${users.length} users`)
           } else {
             console.error("❌ Server returned success: false")
             set({ isLoading: false })
@@ -819,9 +793,7 @@ export const useReservationStore = create<ReservationStore>()(
       // 서버에서 사용자 정지
       restrictUserOnServer: async (userId: number, duration: string) => {
         try {
-          console.log(`🚫 Restricting user ${userId} for ${duration}`)
           const response = await userApi.restrictUser(userId, duration)
-          console.log("✅ User restriction response:", response)
 
           if (response.success) {
             // 로컬 상태도 업데이트
@@ -856,9 +828,7 @@ export const useReservationStore = create<ReservationStore>()(
       // 서버에서 사용자 정지 해제
       unrestrictUserOnServer: async (userId: number) => {
         try {
-          console.log(`✅ Unrestricting user ${userId}`)
           const response = await userApi.unrestrictUser(userId)
-          console.log("✅ User unrestriction response:", response)
 
           if (response.success) {
             // 로컬 상태도 업데이트
@@ -878,6 +848,70 @@ export const useReservationStore = create<ReservationStore>()(
           console.error("❌ Failed to unrestrict user:", error)
           throw error
         }
+      },
+
+      // 기기별 예약 가능 여부 확인 (호실 정보 고려)
+      canReserveMachine: (machineId: string, userRoomNumber: string) => {
+        const { machines } = get()
+        const machine = machines.find((m) => m.id === machineId)
+
+        if (!machine) return { canReserve: false, reason: "기기를 찾을 수 없습니다." }
+        if (machine.isOutOfOrder) return { canReserve: false, reason: "고장난 기기입니다." }
+        if (machine.status === "in-use") return { canReserve: false, reason: "현재 사용 중입니다." }
+
+        // 서버에서 받은 예약 정보 확인
+        if (machine.reservations && machine.reservations.length > 0) {
+          const activeReservation = machine.reservations.find(
+            (r) =>
+              r.status === "waiting" || r.status === "reserved" || r.status === "confirmed" || r.status === "running",
+          )
+
+          if (activeReservation) {
+            if (activeReservation.room === userRoomNumber) {
+              return { canReserve: false, reason: "이미 같은 호실에서 예약했습니다." }
+            } else {
+              return { canReserve: false, reason: `${activeReservation.room}호에서 예약 중입니다.` }
+            }
+          }
+        }
+
+        return { canReserve: true, reason: "" }
+      },
+
+      // 기기의 예약 호실 정보 가져오기 (서버 데이터 활용)
+      getMachineReservationRoom: (machineId: string) => {
+        const { machines } = get()
+        const machine = machines.find((m) => m.id === machineId)
+
+        if (!machine || !machine.reservations || machine.reservations.length === 0) {
+          return null
+        }
+
+        // 활성 예약 찾기
+        const activeReservation = machine.reservations.find(
+          (r) =>
+            r.status === "waiting" || r.status === "reserved" || r.status === "confirmed" || r.status === "running",
+        )
+
+        return activeReservation ? activeReservation.room : null
+      },
+
+      // 기기의 예약 상태 정보 가져오기 (서버 데이터 활용)
+      getMachineReservationStatus: (machineId: string) => {
+        const { machines } = get()
+        const machine = machines.find((m) => m.id === machineId)
+
+        if (!machine || !machine.reservations || machine.reservations.length === 0) {
+          return null
+        }
+
+        // 활성 예약 찾기
+        const activeReservation = machine.reservations.find(
+          (r) =>
+            r.status === "waiting" || r.status === "reserved" || r.status === "confirmed" || r.status === "running",
+        )
+
+        return activeReservation ? activeReservation.status : null
       },
     }),
     {

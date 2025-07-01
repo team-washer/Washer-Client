@@ -31,9 +31,9 @@ export function usePullToRefresh({ onRefresh, threshold = 80, disabled = false }
 
       if (distance > 0) {
         e.preventDefault()
-        const maxDistance = Math.min(distance, 120)
+        const maxDistance = Math.min(distance * 0.5, 100) // 저항감 추가
         setPullDistance(maxDistance)
-        setIsPulling(maxDistance > threshold)
+        setIsPulling(maxDistance > threshold * 0.5)
       }
     },
     [disabled, startY, threshold],
@@ -42,7 +42,7 @@ export function usePullToRefresh({ onRefresh, threshold = 80, disabled = false }
   const handleTouchEnd = useCallback(async () => {
     if (disabled) return
 
-    if (isPulling && pullDistance > threshold) {
+    if (isPulling && pullDistance > threshold * 0.5) {
       setIsRefreshing(true)
       try {
         await onRefresh()
@@ -61,14 +61,18 @@ export function usePullToRefresh({ onRefresh, threshold = 80, disabled = false }
   useEffect(() => {
     if (disabled) return
 
-    document.addEventListener("touchstart", handleTouchStart, { passive: false })
-    document.addEventListener("touchmove", handleTouchMove, { passive: false })
-    document.addEventListener("touchend", handleTouchEnd)
+    const handleTouchStartPassive = (e: TouchEvent) => handleTouchStart(e)
+    const handleTouchMovePassive = (e: TouchEvent) => handleTouchMove(e)
+    const handleTouchEndPassive = () => handleTouchEnd()
+
+    document.addEventListener("touchstart", handleTouchStartPassive, { passive: true })
+    document.addEventListener("touchmove", handleTouchMovePassive, { passive: false })
+    document.addEventListener("touchend", handleTouchEndPassive, { passive: true })
 
     return () => {
-      document.removeEventListener("touchstart", handleTouchStart)
-      document.removeEventListener("touchmove", handleTouchMove)
-      document.removeEventListener("touchend", handleTouchEnd)
+      document.removeEventListener("touchstart", handleTouchStartPassive)
+      document.removeEventListener("touchmove", handleTouchMovePassive)
+      document.removeEventListener("touchend", handleTouchEndPassive)
     }
   }, [disabled, handleTouchStart, handleTouchMove, handleTouchEnd])
 

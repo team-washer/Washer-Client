@@ -27,28 +27,34 @@ export function LayoutModal({ floor }: LayoutModalProps) {
   const washingMachines = floorMachines.filter((machine) => machine.type === "washing")
   const dryers = floorMachines.filter((machine) => machine.type === "dryer")
 
-  // 기기 상태 가져오기
+  // 기기 상태 가져오기 (서버 데이터 활용)
   const getMachineStatus = (machineId: string) => {
     const machine = machines.find((m) => m.id === machineId)
-    const reservation = reservations.find(
-      (r) =>
-        r.machineId === machineId &&
-        (r.status === "reserved" || r.status === "confirmed" || r.status === "running" || r.status === "collection"),
-    )
 
-    if (machine?.isOutOfOrder) return { status: "broken", color: "bg-red-500", text: "고장" }
-    if (reservation) {
-      switch (reservation.status) {
-        case "reserved":
-        case "confirmed":
-          return { status: "reserved", color: "bg-yellow-500", text: "예약됨" }
-        case "running":
-          return { status: "running", color: "bg-blue-500", text: "사용중" }
-        case "collection":
-          return { status: "collection", color: "bg-purple-500", text: "수거대기" }
+    if (!machine) return { status: "unknown", color: "bg-gray-500", text: "알 수 없음" }
+    if (machine.isOutOfOrder) return { status: "broken", color: "bg-red-500", text: "고장" }
+
+    // 서버에서 받은 예약 정보 확인
+    if (machine.reservations && machine.reservations.length > 0) {
+      const activeReservation = machine.reservations.find(
+        (r) => r.status === "waiting" || r.status === "reserved" || r.status === "confirmed" || r.status === "running",
+      )
+
+      if (activeReservation) {
+        switch (activeReservation.status) {
+          case "waiting":
+          case "reserved":
+            return { status: "reserved", color: "bg-yellow-500", text: "예약됨" }
+          case "confirmed":
+            return { status: "confirmed", color: "bg-orange-500", text: "확정됨" }
+          case "running":
+            return { status: "running", color: "bg-blue-500", text: "사용중" }
+        }
       }
     }
-    if (machine?.status === "in-use") return { status: "in-use", color: "bg-blue-500", text: "사용중" }
+
+    // 기본 상태 확인
+    if (machine.status === "in-use") return { status: "in-use", color: "bg-blue-500", text: "사용중" }
     return { status: "available", color: "bg-green-500", text: "사용가능" }
   }
 
@@ -79,14 +85,14 @@ export function LayoutModal({ floor }: LayoutModalProps) {
           <div className="flex flex-wrap gap-2 justify-center">
             <Badge className="bg-green-500 text-white">사용가능</Badge>
             <Badge className="bg-yellow-500 text-white">예약됨</Badge>
+            <Badge className="bg-orange-500 text-white">확정됨</Badge>
             <Badge className="bg-blue-500 text-white">사용중</Badge>
-            <Badge className="bg-purple-500 text-white">수거대기</Badge>
             <Badge className="bg-red-500 text-white">고장</Badge>
           </div>
 
           {/* 3D 스타일 배치도 */}
           <div
-            className="relative p-6 rounded-xl"
+            className="relative p-6 pb-12 rounded-xl"
             style={{
               background: "linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 50%, #dae8ff 100%)",
               boxShadow: "inset 0 2px 10px rgba(100, 135, 219, 0.1)",
@@ -239,7 +245,7 @@ export function LayoutModal({ floor }: LayoutModalProps) {
             </div>
 
             {/* 입구 표시 */}
-            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2">
+            <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2">
               <div className="bg-[#86A9FF] text-white px-3 py-1 rounded-full text-xs font-medium">입구</div>
             </div>
           </div>

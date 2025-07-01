@@ -3,10 +3,9 @@
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Shirt, Wind, Settings, RefreshCw, AlertCircle, Calendar } from "lucide-react"
+import { Shirt, Wind, RefreshCw, AlertCircle, Calendar } from "lucide-react"
 import { WashingMachineList } from "@/components/washing-machine-list"
 import { DryerList } from "@/components/dryer-list"
 import { ReservationCard } from "@/components/reservation-card"
@@ -66,7 +65,6 @@ export default function HomePage() {
         return
       }
 
-      console.log("🚀 Initializing data (one time only)...")
       setIsLoading(true)
 
       try {
@@ -80,7 +78,6 @@ export default function HomePage() {
         }
 
         setIsInitialized(true) // 초기화 완료 표시
-        console.log("✅ Data initialization completed")
       } catch (error) {
         console.error("❌ Failed to initialize data:", error)
         toast({
@@ -115,46 +112,10 @@ export default function HomePage() {
     }
   }, [refreshCooldown])
 
-  // 수동 새로고침 함수
-  const handleRefresh = useCallback(async () => {
-    if (refreshCooldown > 0) {
-      toast({
-        title: "새로고침 대기",
-        description: `${refreshCooldown}초 후에 다시 시도해주세요.`,
-        variant: "destructive",
-      })
-      return
-    }
-
-    console.log("🔄 Manual refresh triggered")
-    setRefreshCooldown(5)
-    setIsLoading(true)
-
-    try {
-      await fetchMachines()
-      if (userId) {
-        await fetchMyInfo(userId)
-      }
-      toast({
-        title: "새로고침 완료",
-        description: "최신 정보로 업데이트되었습니다.",
-      })
-    } catch (error) {
-      toast({
-        title: "새로고침 실패",
-        description: "데이터를 새로고침하는 중 오류가 발생했습니다.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }, [refreshCooldown, userId, fetchMachines, fetchMyInfo, toast])
-
   // Pull to refresh 설정 (메모이제이션)
   const pullToRefreshHandler = useCallback(async () => {
     if (refreshCooldown > 0) return
 
-    console.log("📱 Pull to refresh triggered")
     setRefreshCooldown(5)
     try {
       await fetchMachines()
@@ -174,7 +135,10 @@ export default function HomePage() {
     }
   }, [refreshCooldown, userId, fetchMachines, fetchMyInfo, toast])
 
-  usePullToRefresh(pullToRefreshHandler)
+  const { pullDistance, isPulling, isRefreshing } = usePullToRefresh({
+    onRefresh: pullToRefreshHandler,
+    disabled: isLoading,
+  })
 
   const userReservations = reservations.filter((r) => r.userId === userId)
 
@@ -195,50 +159,30 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* 헤더 */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-[#86A9FF] rounded-lg">
-                <Shirt className="h-6 w-6 text-white" />
-              </div>
-              <h1 className="text-2xl font-bold text-[#6487DB] dark:text-white">Washer</h1>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={handleRefresh}
-                disabled={refreshCooldown > 0}
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${refreshCooldown > 0 ? "animate-spin" : ""}`} />
-                <span className="hidden sm:inline">{refreshCooldown > 0 ? `${refreshCooldown}초` : "새로고침"}</span>
-                <span className="sm:hidden">{refreshCooldown > 0 ? `${refreshCooldown}` : "새로고침"}</span>
-              </Button>
-
-              {currentUser?.isAdmin && (
-                <Button
-                  onClick={() => router.push("/admin")}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2"
-                >
-                  <Settings className="h-4 w-4" />
-                  <span className="hidden sm:inline">관리자</span>
-                  <span className="sm:hidden">관리</span>
-                </Button>
-              )}
-            </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 relative">
+      {/* Pull to refresh indicator - 완전히 새로운 접근 */}
+      {(isPulling || isRefreshing) && (
+        <div
+          className="absolute -top-[100px] left-0 right-0 flex justify-center pt-20 z-50"
+          style={{
+            transform: `translateY(${Math.min(pullDistance * 0.5, 50)}px)`,
+            transition: isPulling ? "none" : "transform 0.3s ease-out",
+          }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-full p-3 shadow-lg border">
+            <RefreshCw className={`h-6 w-6 text-[#86A9FF] ${isRefreshing ? "animate-spin" : ""}`} />
           </div>
         </div>
-      </div>
+      )}
 
       {/* 메인 컨텐츠 */}
-      <div className="container mx-auto px-4 py-6 space-y-6">
+      <div
+        className="container mx-auto px-4 py-6 space-y-6"
+        style={{
+          transform: `translateY(${Math.min(pullDistance, 100)}px)`,
+          transition: isPulling ? "none" : "transform 0.3s ease-out",
+        }}
+      >
         {/* 사용자 제재 알림 */}
         {isCurrentUserRestricted() && (
           <Alert className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
@@ -308,12 +252,18 @@ export default function HomePage() {
           </CardHeader>
           <CardContent className="pt-0 pb-8">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6 h-12">
-                <TabsTrigger value="washing" className="flex items-center gap-2 h-10">
+              <TabsList className="grid w-full grid-cols-2 mb-6 h-14 bg-muted p-3 rounded-lg">
+                <TabsTrigger
+                  value="washing"
+                  className="flex items-center gap-2 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all text-sm px-4 py-2"
+                >
                   <Shirt className="h-4 w-4" />
                   세탁기
                 </TabsTrigger>
-                <TabsTrigger value="dryer" className="flex items-center gap-2 h-10">
+                <TabsTrigger
+                  value="dryer"
+                  className="flex items-center gap-2 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all text-sm px-4 py-2"
+                >
                   <Wind className="h-4 w-4" />
                   건조기
                 </TabsTrigger>

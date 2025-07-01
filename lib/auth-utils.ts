@@ -1,105 +1,187 @@
-// 간단한 암호화/복호화 유틸리티
-const ENCRYPTION_KEY = "washer_app_secret_key_2024"
+import { create } from "zustand"
+import { persist } from "zustand/middleware"
 
-// 문자열을 Base64로 인코딩하고 키와 XOR 연산
-function encrypt(text: string): string {
-  const keyBytes = new TextEncoder().encode(ENCRYPTION_KEY)
-  const textBytes = new TextEncoder().encode(text)
+// 사용자 역할 타입
+export type UserRole = "ROLE_USER" | "ROLE_ADMIN"
 
-  const encrypted = new Uint8Array(textBytes.length)
-  for (let i = 0; i < textBytes.length; i++) {
-    encrypted[i] = textBytes[i] ^ keyBytes[i % keyBytes.length]
-  }
-
-  return btoa(String.fromCharCode(...encrypted))
+// 인증 상태 타입
+interface AuthState {
+  isLoggedIn: boolean
+  setIsLoggedIn: (isLoggedIn: boolean) => void
 }
 
-// Base64 디코딩하고 키와 XOR 연산으로 복호화
-function decrypt(encryptedText: string): string {
-  try {
-    const keyBytes = new TextEncoder().encode(ENCRYPTION_KEY)
-    const encryptedBytes = new Uint8Array(
-      atob(encryptedText)
-        .split("")
-        .map((char) => char.charCodeAt(0)),
-    )
+// Base32 인코딩/디코딩 함수
+const base32Encode = (str: string): string => {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+  let bits = 0
+  let value = 0
+  let output = ''
 
-    const decrypted = new Uint8Array(encryptedBytes.length)
-    for (let i = 0; i < encryptedBytes.length; i++) {
-      decrypted[i] = encryptedBytes[i] ^ keyBytes[i % keyBytes.length]
+  for (let i = 0; i < str.length; i++) {
+    value = (value << 8) | str.charCodeAt(i)
+    bits += 8
+
+    while (bits >= 5) {
+      output += alphabet[(value >>> (bits - 5)) & 31]
+      bits -= 5
     }
-
-    return new TextDecoder().decode(decrypted)
-  } catch (error) {
-    console.error("Decryption failed:", error)
-    return ""
   }
+
+  if (bits > 0) {
+    output += alphabet[(value << (5 - bits)) & 31]
+  }
+
+  return output
 }
 
-// 사용자 역할 관리
+const base32Decode = (str: string): string => {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+  let bits = 0
+  let value = 0
+  let output = ''
+
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i].toUpperCase()
+    const index = alphabet.indexOf(char)
+    if (index === -1) continue
+
+    value = (value << 5) | index
+    bits += 5
+
+    while (bits >= 8) {
+      output += String.fromCharCode((value >>> (bits - 8)) & 255)
+      bits -= 8
+    }
+  }
+
+  return output
+}
+
+// 인증 상태 스토어
+export const authStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      isLoggedIn: false,
+      setIsLoggedIn: (isLoggedIn: boolean) => {
+        set({ isLoggedIn })
+      },
+    }),
+    {
+      name: "auth-storage",
+      storage: {
+        getItem: (name) => {
+          if (typeof window !== "undefined") {
+            const value = localStorage.getItem(name)
+            return value ? JSON.parse(value) : null
+          }
+          return null
+        },
+        setItem: (name, value) => {
+          if (typeof window !== "undefined") {
+            localStorage.setItem(name, JSON.stringify(value))
+          }
+        },
+        removeItem: (name) => {
+          if (typeof window !== "undefined") {
+            localStorage.removeItem(name)
+          }
+        },
+      },
+    },
+  ),
+)
+
+// 역할 관리자
 export const roleManager = {
-  // 역할 저장 (암호화)
-  setRole: (role: "ROLE_USER" | "ROLE_ADMIN") => {
-    if (typeof window === "undefined") return
-    const encryptedRole = encrypt(role)
-    localStorage.setItem("userRole", encryptedRole)
-    console.log(`🔐 Role encrypted and stored: ${role}`)
-  },
-
-  // 역할 가져오기 (복호화)
-  getRole: (): "ROLE_USER" | "ROLE_ADMIN" | null => {
-    if (typeof window === "undefined") return null
-    const encryptedRole = localStorage.getItem("userRole")
-    if (!encryptedRole) return null
-
-    const decryptedRole = decrypt(encryptedRole)
-    if (decryptedRole === "ROLE_USER" || decryptedRole === "ROLE_ADMIN") {
-      return decryptedRole
+  setRole: (role: UserRole) => {
+    if (typeof window !== "undefined") {
+      let encodedRole = role as string
+      
+      // base64 5회
+      for (let i = 0; i < 5; i++) {
+        encodedRole = btoa(encodedRole)
+      }
+      
+      // base32 1회
+      encodedRole = base32Encode(encodedRole)
+      
+      // base64 5회
+      for (let i = 0; i < 5; i++) {
+        encodedRole = btoa(encodedRole)
+      }
+      
+      // base32 1회
+      encodedRole = base32Encode(encodedRole)
+      
+      localStorage.setItem("userRole", encodedRole)
     }
-
-    console.warn("Invalid role found, clearing...")
-    roleManager.clearRole()
-    return null
   },
 
-  // 역할 삭제
+  getRole: (): UserRole | null => {
+    if (typeof window === "undefined") return null
+
+    try {
+      let encodedRole = localStorage.getItem("userRole")
+      if (!encodedRole) return null
+
+      let role = encodedRole
+      
+      // base32 1회 디코딩
+      role = base32Decode(role)
+      
+      // base64 5회 디코딩
+      for (let i = 0; i < 5; i++) {
+        role = atob(role)
+      }
+      
+      // base32 1회 디코딩
+      role = base32Decode(role)
+      
+      // base64 5회 디코딩
+      for (let i = 0; i < 5; i++) {
+        role = atob(role)
+      }
+      
+      return role === "ROLE_USER" || role === "ROLE_ADMIN" ? (role as UserRole) : null
+    } catch (error) {
+      console.error("❌ Failed to decode role:", error)
+      return null
+    }
+  },
+
   clearRole: () => {
-    if (typeof window === "undefined") return
-    localStorage.removeItem("userRole")
-    console.log(`🗑️ Role cleared`)
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("userRole")
+    }
   },
 
-  // 관리자 권한 확인
   isAdmin: (): boolean => {
-    const role = roleManager.getRole()
-    return role === "ROLE_ADMIN"
+    return roleManager.getRole() === "ROLE_ADMIN"
   },
 
-  // 사용자 권한 확인
   isUser: (): boolean => {
-    const role = roleManager.getRole()
-    return role === "ROLE_USER" || role === "ROLE_ADMIN"
+    return roleManager.getRole() === "ROLE_USER"
   },
 
-  // 역할 존재 확인
   hasRole: (): boolean => {
     return roleManager.getRole() !== null
   },
 }
 
-// 추가 보안을 위한 토큰 검증
+// 보안 관리자
 export const securityManager = {
-  // 토큰과 역할의 일관성 검증 (서버에서 재확인)
+  // 토큰과 역할의 일관성 검증
   validateTokenAndRole: async (): Promise<boolean> => {
     try {
-      // 실제로는 서버에서 토큰을 검증하고 역할을 재확인해야 함
-      // 여기서는 간단히 토큰 존재 여부만 확인
+      if (typeof window === "undefined") return false
+
       const hasToken = localStorage.getItem("authToken") !== null
       const hasRole = roleManager.hasRole()
+      const isLoggedIn = authStore.getState().isLoggedIn
 
-      return hasToken && hasRole
+      return hasToken && hasRole && isLoggedIn
     } catch (error) {
-      console.error("Token validation failed:", error)
+      console.error("❌ Token validation failed:", error)
       return false
     }
   },
@@ -107,12 +189,81 @@ export const securityManager = {
   // 권한 변조 시도 감지
   detectTampering: (): boolean => {
     try {
+      if (typeof window === "undefined") return false
+
       const role = roleManager.getRole()
-      // 역할이 null이거나 유효하지 않으면 변조 의심
-      return role === null
+      const token = localStorage.getItem("authToken")
+
+      // 역할이 null이거나 토큰이 없으면 변조 의심
+      if (role === null || !token) {
+        console.warn("⚠️ Potential tampering detected: missing role or token")
+        return true
+      }
+
+      return false
     } catch (error) {
       // 복호화 실패 시 변조로 간주
+      console.error("❌ Tampering detection error:", error)
       return true
     }
   },
+
+  // 관리자 권한 검증
+  validateAdminAccess: (): boolean => {
+    try {
+      const isAdmin = roleManager.isAdmin()
+      const hasValidToken = checkAuthState()
+
+      return isAdmin && hasValidToken
+    } catch (error) {
+      console.error("❌ Admin access validation failed:", error)
+      return false
+    }
+  },
+}
+
+// 인증 상태 확인 헬퍼
+export const checkAuthState = () => {
+  const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : null
+  const hasValidToken = Boolean(token && token !== "null" && token !== "undefined")
+  const currentLoginState = authStore.getState().isLoggedIn
+
+  // 토큰이 없는데 로그인 상태가 true인 경우 강제 로그아웃 및 새로고침
+  if (!hasValidToken && currentLoginState) {
+    authStore.getState().setIsLoggedIn(false)
+    roleManager.clearRole()
+    localStorage.removeItem("authToken")
+    localStorage.removeItem("isLoggedIn")
+    localStorage.removeItem("studentId")
+
+    // 강제 새로고침
+    if (typeof window !== "undefined") {
+      window.location.reload()
+    }
+    return false
+  }
+
+  // 토큰과 로그인 상태가 일치하지 않으면 동기화
+  if (hasValidToken !== currentLoginState) {
+    authStore.getState().setIsLoggedIn(hasValidToken)
+  }
+
+  return hasValidToken
+}
+
+// 로그아웃 헬퍼
+export const performLogout = () => {
+  if (typeof window !== "undefined") {
+    // 인증 상태 초기화
+    authStore.getState().setIsLoggedIn(false)
+
+    // 토큰 및 역할 정보 삭제
+    localStorage.removeItem("authToken")
+    roleManager.clearRole()
+
+    // 기타 로그인 관련 정보 삭제
+    localStorage.removeItem("isLoggedIn")
+    localStorage.removeItem("studentId")
+
+  }
 }

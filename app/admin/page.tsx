@@ -45,7 +45,17 @@ import {
   type AdminUserInfo,
   parseTimeStringToSeconds,
 } from "@/lib/api-client"
-import { formatTime } from "@/lib/utils"
+// Helper function to format time in seconds to readable format
+const formatTime = (seconds: number): string => {
+  if (seconds <= 0) return "00:00:00"
+
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = seconds % 60
+
+  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+}
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 
 export default function AdminPage() {
   const router = useRouter()
@@ -82,7 +92,26 @@ export default function AdminPage() {
   const [isUnrestrictDialogOpen, setIsUnrestrictDialogOpen] = useState(false)
   const [restrictionReason, setRestrictionReason] = useState("")
 
-  const { machines, reservations, users, fetchMachines, fetchUsers } = useReservationStore()
+  const { machines, fetchMachines } = useReservationStore()
+
+  // Pull-to-refresh 훅 사용
+  const {
+    isPulling,
+    isRefreshing: pullRefreshing,
+  } = usePullToRefresh({
+    onRefresh: async () => {
+      if (refreshCooldown > 0) {
+        toast({
+          title: "새로고침 대기",
+          description: `${refreshCooldown}초 후에 다시 시도해주세요.`,
+          variant: "destructive",
+        })
+        return
+      }
+      await handleRefreshData()
+    },
+    threshold: 80,
+  })
 
   useEffect(() => {
     // 로그인 및 관리자 상태 확인
@@ -92,16 +121,7 @@ export default function AdminPage() {
     setIsAuthenticated(loggedIn)
 
     if (loggedIn && studentId) {
-      const userRole = roleManager.getRole()
       const isAdminUser = roleManager.isAdmin()
-
-      console.log("🔍 Admin page access check:", {
-        loggedIn,
-        studentId,
-        userRole,
-        isAdminUser,
-        hasRole: roleManager.hasRole(),
-      })
 
       setIsAdmin(isAdminUser)
 
@@ -344,12 +364,6 @@ export default function AdminPage() {
     }
 
     try {
-      console.log(`🚫 Attempting to restrict user with:`, {
-        userId: selectedUserId,
-        period: restrictionDuration,
-        reason: restrictionReason,
-      })
-
       const response = await userApi.restrictUser(selectedUserId, {
         period: restrictionDuration,
         restrictionReason: restrictionReason,
@@ -502,476 +516,119 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="container mx-auto py-6 px-4">
-      {/* 헤더 */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-        <h1 className="text-3xl font-bold text-[#6487DB] dark:text-[#86A9FF]">관리자 페이지</h1>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefreshData}
-          disabled={refreshing || refreshCooldown > 0}
-          className="border-[#86A9FF] text-[#6487DB] hover:bg-[#EDF2FF]"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-          {refreshing ? "새로고침 중..." : refreshCooldown > 0 ? `새로고침 (${refreshCooldown}초)` : "새로고침"}
-        </Button>
-      </div>
+    <div className="relative">
+      {/* Pull-to-refresh 인디케이터 */}
+      {(isPulling || pullRefreshing) && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-white dark:bg-gray-800 rounded-full p-3 shadow-lg border">
+          <RefreshCw className={`h-5 w-5 text-[#6487DB] ${pullRefreshing ? "animate-spin" : ""}`} />
+        </div>
+      )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 mb-6">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">개요</span>
-          </TabsTrigger>
-          <TabsTrigger value="devices" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline">기기 관리</span>
-          </TabsTrigger>
-          <TabsTrigger value="reservations" className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            <span className="hidden sm:inline">예약 관리</span>
-          </TabsTrigger>
-          <TabsTrigger value="reports" className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
-            <span className="hidden sm:inline">신고 관리</span>
-          </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">사용자 관리</span>
-          </TabsTrigger>
-        </TabsList>
+      <div className="container mx-auto py-6 px-4">
+        {/* 헤더 */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+          <h1 className="text-3xl font-bold text-[#6487DB] dark:text-[#86A9FF]">관리자 페이지</h1>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefreshData}
+            disabled={refreshing || refreshCooldown > 0}
+            className="border-[#86A9FF] text-[#6487DB] hover:bg-[#EDF2FF]"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "새로고침 중..." : refreshCooldown > 0 ? `새로고침 (${refreshCooldown}초)` : "새로고침"}
+          </Button>
+        </div>
 
-        {/* 개요 탭 */}
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">총 기기 수</CardTitle>
-                <Settings className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{machines.length}</div>
-                <p className="text-xs text-muted-foreground">
-                  세탁기 {machines.filter((m) => m.type === "washing").length}대, 건조기{" "}
-                  {machines.filter((m) => m.type === "dryer").length}대
-                </p>
-              </CardContent>
-            </Card>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-5 mb-6 bg-muted p-2 rounded-lg h-12">
+            <TabsTrigger value="overview" className="flex items-center gap-1 rounded-md h-8 text-xs px-2 py-1">
+              <BarChart3 className="h-3 w-3" />
+              <span className="hidden sm:inline">개요</span>
+            </TabsTrigger>
+            <TabsTrigger value="devices" className="flex items-center gap-1 rounded-md h-8 text-xs px-2 py-1">
+              <Settings className="h-3 w-3" />
+              <span className="hidden sm:inline">기기 관리</span>
+            </TabsTrigger>
+            <TabsTrigger value="reservations" className="flex items-center gap-1 rounded-md h-8 text-xs px-2 py-1">
+              <Calendar className="h-3 w-3" />
+              <span className="hidden sm:inline">예약 관리</span>
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="flex items-center gap-1 rounded-md h-8 text-xs px-2 py-1">
+              <AlertTriangle className="h-3 w-3" />
+              <span className="hidden sm:inline">신고 관리</span>
+            </TabsTrigger>
+            <TabsTrigger value="users" className="flex items-center gap-1 rounded-md h-8 text-xs px-2 py-1">
+              <Users className="h-3 w-3" />
+              <span className="hidden sm:inline">사용자 관리</span>
+            </TabsTrigger>
+          </TabsList>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">활성 예약</CardTitle>
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{adminReservations.length}</div>
-                <p className="text-xs text-muted-foreground">현재 진행 중인 예약</p>
-              </CardContent>
-            </Card>
+          {/* 개요 탭 */}
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">총 기기 수</CardTitle>
+                  <Settings className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{machines.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    세탁기 {machines.filter((m) => m.type === "washing").length}대, 건조기{" "}
+                    {machines.filter((m) => m.type === "dryer").length}대
+                  </p>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">고장 신고</CardTitle>
-                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{reports.filter((r) => r.status === "pending").length}</div>
-                <p className="text-xs text-muted-foreground">총 {reports.length}건 중 대기 중</p>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">활성 예약</CardTitle>
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{adminReservations.length}</div>
+                  <p className="text-xs text-muted-foreground">현재 진행 중인 예약</p>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">고장 기기</CardTitle>
-                <XCircle className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{outOfOrderDevices.filter((d) => d.outOfOrder).length}</div>
-                <p className="text-xs text-muted-foreground">수리가 필요한 기기</p>
-              </CardContent>
-            </Card>
-          </div>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">고장 신고</CardTitle>
+                  <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{reports.filter((r) => r.status === "pending").length}</div>
+                  <p className="text-xs text-muted-foreground">총 {reports.length}건 중 대기 중</p>
+                </CardContent>
+              </Card>
 
-          {/* 최근 활동 */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>최근 고장 신고</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {reports.slice(0, 5).map((report) => (
-                    <div key={report.reportId} className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">{report.machineName}</p>
-                        <p className="text-xs text-gray-500">{report.reportedByUserName}</p>
-                      </div>
-                      <Badge
-                        variant={
-                          report.status === "pending"
-                            ? "destructive"
-                            : report.status === "in_progress"
-                              ? "default"
-                              : "secondary"
-                        }
-                      >
-                        {report.status === "pending" ? "대기" : report.status === "in_progress" ? "처리중" : "완료"}
-                      </Badge>
-                    </div>
-                  ))}
-                  {reports.length === 0 && <p className="text-sm text-gray-500 text-center py-4">신고가 없습니다.</p>}
-                </div>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">고장 기기</CardTitle>
+                  <XCircle className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{outOfOrderDevices.filter((d) => d.outOfOrder).length}</div>
+                  <p className="text-xs text-muted-foreground">수리가 필요한 기기</p>
+                </CardContent>
+              </Card>
+            </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>현재 활성 예약</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {adminReservations.slice(0, 5).map((reservation) => (
-                    <div key={reservation.reservationId} className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">{reservation.machineLabel}</p>
-                        <p className="text-xs text-gray-500">남은 시간: {formatTime(reservation.remainingSeconds)}</p>
-                      </div>
-                      <Badge
-                        variant={
-                          reservation.status === "waiting"
-                            ? "secondary"
-                            : reservation.status === "running"
-                              ? "default"
-                              : "outline"
-                        }
-                      >
-                        {reservation.status === "waiting"
-                          ? "대기"
-                          : reservation.status === "running"
-                            ? "사용중"
-                            : reservation.status}
-                      </Badge>
-                    </div>
-                  ))}
-                  {adminReservations.length === 0 && (
-                    <p className="text-sm text-gray-500 text-center py-4">활성 예약이 없습니다.</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* 기기 관리 탭 */}
-        <TabsContent value="devices" className="space-y-6">
-          {/* 필터 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                필터
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <Label htmlFor="device-search">검색</Label>
-                  <Input
-                    id="device-search"
-                    placeholder="기기명 검색..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="device-type">기기 유형</Label>
-                  <Select value={deviceTypeFilter} onValueChange={(value: any) => setDeviceTypeFilter(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">전체</SelectItem>
-                      <SelectItem value="washer">세탁기</SelectItem>
-                      <SelectItem value="dryer">건조기</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="device-floor">층</Label>
-                  <Select value={floorFilter} onValueChange={(value: any) => setFloorFilter(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">전체</SelectItem>
-                      <SelectItem value="3F">3층</SelectItem>
-                      <SelectItem value="4F">4층</SelectItem>
-                      <SelectItem value="5F">5층</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-end">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSearchTerm("")
-                      setDeviceTypeFilter("all")
-                      setFloorFilter("all")
-                    }}
-                  >
-                    필터 초기화
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 기기 목록 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>기기 고장 상태 관리</CardTitle>
-              <CardDescription>기기의 고장 상태를 관리할 수 있습니다.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {filteredOutOfOrderDevices.map((device) => (
-                  <div key={device.name} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-3 h-3 rounded-full ${device.outOfOrder ? "bg-red-500" : "bg-green-500"}`} />
-                      <div>
-                        <p className="font-medium">{device.name}</p>
-                        <p className="text-sm text-gray-500">
-                          {device.type === "washer" ? "세탁기" : "건조기"} • {device.floor}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={device.outOfOrder ? "destructive" : "secondary"}>
-                        {device.outOfOrder ? "고장" : "정상"}
-                      </Badge>
-                      <Button
-                        variant={device.outOfOrder ? "default" : "destructive"}
-                        size="sm"
-                        onClick={() => handleToggleOutOfOrder(device.name, device.outOfOrder)}
-                      >
-                        {device.outOfOrder ? (
-                          <>
-                            <Wrench className="h-4 w-4 mr-1" />
-                            수리 완료
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="h-4 w-4 mr-1" />
-                            고장 등록
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-                {filteredOutOfOrderDevices.length === 0 && (
-                  <div className="text-center py-8">
-                    <Settings className="h-12 w-12 mx-auto text-gray-400 mb-2" />
-                    <p className="text-gray-500">표시할 기기가 없습니다.</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* 예약 관리 탭 */}
-        <TabsContent value="reservations" className="space-y-6">
-          {/* 필터 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                필터
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="reservation-search">검색</Label>
-                  <Input
-                    id="reservation-search"
-                    placeholder="기기명 검색..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="reservation-type">기기 유형</Label>
-                  <Select value={reservationTypeFilter} onValueChange={(value: any) => setReservationTypeFilter(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">전체</SelectItem>
-                      <SelectItem value="WASHER">세탁기</SelectItem>
-                      <SelectItem value="DRYER">건조기</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-end">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSearchTerm("")
-                      setReservationTypeFilter("all")
-                    }}
-                  >
-                    필터 초기화
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 예약 목록 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>활성 예약 관리</CardTitle>
-              <CardDescription>현재 진행 중인 모든 예약을 관리할 수 있습니다.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {filteredAdminReservations.map((reservation) => (
-                  <div
-                    key={reservation.reservationId}
-                    className="flex items-center justify-between p-4 border rounded-lg"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-full">
-                        {reservation.machineLabel.includes("Washer") ? "🧺" : "🌪️"}
-                      </div>
-                      <div>
-                        <p className="font-medium">{reservation.machineLabel}</p>
-                        <p className="text-sm text-gray-500">
-                          시작: {new Date(reservation.startTime).toLocaleString()}
-                        </p>
-                        <p className="text-sm text-gray-500">남은 시간: {formatTime(reservation.remainingSeconds)}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={
-                          reservation.status === "waiting"
-                            ? "secondary"
-                            : reservation.status === "running"
-                              ? "default"
-                              : "outline"
-                        }
-                      >
-                        {reservation.status === "waiting"
-                          ? "대기"
-                          : reservation.status === "running"
-                            ? "사용중"
-                            : reservation.status}
-                      </Badge>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleForceDeleteReservation(reservation.reservationId)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        강제 삭제
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-                {filteredAdminReservations.length === 0 && (
-                  <div className="text-center py-8">
-                    <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-2" />
-                    <p className="text-gray-500">활성 예약이 없습니다.</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* 신고 관리 탭 */}
-        <TabsContent value="reports" className="space-y-6">
-          {/* 필터 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                필터
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="report-search">검색</Label>
-                  <Input
-                    id="report-search"
-                    placeholder="기기명, 사용자명, 내용 검색..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="report-status">상태</Label>
-                  <Select value={reportStatusFilter} onValueChange={(value: any) => setReportStatusFilter(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">전체</SelectItem>
-                      <SelectItem value="pending">대기</SelectItem>
-                      <SelectItem value="in_progress">처리중</SelectItem>
-                      <SelectItem value="resolved">완료</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-end">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSearchTerm("")
-                      setReportStatusFilter("all")
-                    }}
-                  >
-                    필터 초기화
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 신고 목록 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>고장 신고 관리</CardTitle>
-              <CardDescription>사용자가 신고한 기기 고장을 관리할 수 있습니다.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {filteredReports.map((report) => (
-                  <div key={report.reportId} className="p-4 border rounded-lg">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <AlertTriangle
-                          className={`h-5 w-5 ${
-                            report.status === "pending"
-                              ? "text-red-500"
-                              : report.status === "in_progress"
-                                ? "text-yellow-500"
-                                : "text-green-500"
-                          }`}
-                        />
+            {/* 최근 활동 */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>최근 고장 신고</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {reports.slice(0, 5).map((report) => (
+                      <div key={report.reportId} className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium">{report.machineName}</p>
-                          <p className="text-sm text-gray-500">
-                            신고자: {report.reportedByUserName} ({report.reportedByUserNumber})
-                          </p>
+                          <p className="text-sm font-medium">{report.machineName}</p>
+                          <p className="text-xs text-gray-500">{report.reportedByUserName}</p>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
                         <Badge
                           variant={
                             report.status === "pending"
@@ -983,272 +640,641 @@ export default function AdminPage() {
                         >
                           {report.status === "pending" ? "대기" : report.status === "in_progress" ? "처리중" : "완료"}
                         </Badge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedReportId(report.reportId)
-                            setSelectedReportStatus(report.status)
-                            setIsReportStatusDialogOpen(true)
-                          }}
-                        >
-                          상태 변경
-                        </Button>
                       </div>
-                    </div>
-                    <div className="bg-gray-50 p-3 rounded">
-                      <p className="text-sm">{report.description}</p>
-                    </div>
-                    {report.resolvedAt && (
-                      <p className="text-xs text-gray-500 mt-2">
-                        해결 완료: {new Date(report.resolvedAt).toLocaleString()}
-                      </p>
+                    ))}
+                    {reports.length === 0 && <p className="text-sm text-gray-500 text-center py-4">신고가 없습니다.</p>}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>현재 활성 예약</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {adminReservations.slice(0, 5).map((reservation) => (
+                      <div key={reservation.reservationId} className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">{reservation.machineLabel}</p>
+                          <p className="text-xs text-gray-500">남은 시간: {formatTime(reservation.remainingSeconds)}</p>
+                        </div>
+                        <Badge
+                          variant={
+                            reservation.status === "waiting"
+                              ? "secondary"
+                              : reservation.status === "running"
+                                ? "default"
+                                : "outline"
+                          }
+                        >
+                          {reservation.status === "waiting"
+                            ? "대기"
+                            : reservation.status === "running"
+                              ? "사용중"
+                              : reservation.status}
+                        </Badge>
+                      </div>
+                    ))}
+                    {adminReservations.length === 0 && (
+                      <p className="text-sm text-gray-500 text-center py-4">활성 예약이 없습니다.</p>
                     )}
                   </div>
-                ))}
-                {filteredReports.length === 0 && (
-                  <div className="text-center py-8">
-                    <AlertTriangle className="h-12 w-12 mx-auto text-gray-400 mb-2" />
-                    <p className="text-gray-500">신고가 없습니다.</p>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* 기기 관리 탭 */}
+          <TabsContent value="devices" className="space-y-6">
+            {/* 필터 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Filter className="h-5 w-5" />
+                  필터
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <Label htmlFor="device-search">검색</Label>
+                    <Input
+                      id="device-search"
+                      placeholder="기기명 검색..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                  <div>
+                    <Label htmlFor="device-type">기기 유형</Label>
+                    <Select value={deviceTypeFilter} onValueChange={(value: any) => setDeviceTypeFilter(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">전체</SelectItem>
+                        <SelectItem value="washer">세탁기</SelectItem>
+                        <SelectItem value="dryer">건조기</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="device-floor">층</Label>
+                    <Select value={floorFilter} onValueChange={(value: any) => setFloorFilter(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">전체</SelectItem>
+                        <SelectItem value="3F">3층</SelectItem>
+                        <SelectItem value="4F">4층</SelectItem>
+                        <SelectItem value="5F">5층</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearchTerm("")
+                        setDeviceTypeFilter("all")
+                        setFloorFilter("all")
+                      }}
+                    >
+                      필터 초기화
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* 사용자 관리 탭 */}
-        <TabsContent value="users" className="space-y-6">
-          {/* 필터 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                필터
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <Label htmlFor="user-search">검색</Label>
-                  <Input
-                    id="user-search"
-                    placeholder="이름, 학번, 호실 검색..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="user-gender">성별</Label>
-                  <Select value={userGenderFilter} onValueChange={(value: any) => setUserGenderFilter(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">전체</SelectItem>
-                      <SelectItem value="male">남성</SelectItem>
-                      <SelectItem value="female">여성</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="user-floor">층</Label>
-                  <Select value={userFloorFilter} onValueChange={(value: any) => setUserFloorFilter(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">전체</SelectItem>
-                      <SelectItem value="3">3층</SelectItem>
-                      <SelectItem value="4">4층</SelectItem>
-                      <SelectItem value="5">5층</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-end">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSearchTerm("")
-                      setUserGenderFilter("all")
-                      setUserFloorFilter("all")
-                    }}
-                  >
-                    필터 초기화
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 사용자 목록 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>사용자 관리</CardTitle>
-              <CardDescription>사용자의 정지 상태를 관리할 수 있습니다.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {filteredAdminUsers.map((user) => {
-                  const restricted = isUserRestricted(user)
-                  return (
-                    <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+            {/* 기기 목록 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>기기 고장 상태 관리</CardTitle>
+                <CardDescription>기기의 고장 상태를 관리할 수 있습니다.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {filteredOutOfOrderDevices.map((device) => (
+                    <div key={device.name} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center gap-4">
-                        <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-full">
-                          <Users className="h-5 w-5 text-blue-600" />
-                        </div>
+                        <div className={`w-3 h-3 rounded-full ${device.outOfOrder ? "bg-red-500" : "bg-green-500"}`} />
                         <div>
-                          <p className="font-medium">{user.name}</p>
+                          <p className="font-medium">{device.name}</p>
                           <p className="text-sm text-gray-500">
-                            {user.schoolNumber} • {user.roomName}호 • {user.gender === "male" ? "남성" : "여성"}
+                            {device.type === "washer" ? "세탁기" : "건조기"} • {device.floor}
                           </p>
-                          {/* 정지 상태 표시 */}
-                          {restricted && (
-                            <div className="mt-1">
-                              <Badge variant="destructive" className="text-xs">
-                                <Clock className="h-3 w-3 mr-1" />
-                                정지 중
-                              </Badge>
-                              <p className="text-xs text-red-600 mt-1">
-                                남은 시간: {getRestrictedTimeRemaining(user.restrictedUntil!)}
-                              </p>
-                              {user.restrictionReason && (
-                                <p className="text-xs text-gray-600 mt-1">사유: {user.restrictionReason}</p>
-                              )}
-                            </div>
-                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {!restricted ? (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedUserId(user.id)
-                              setIsRestrictDialogOpen(true)
-                            }}
+                        <Badge variant={device.outOfOrder ? "destructive" : "secondary"}>
+                          {device.outOfOrder ? "고장" : "정상"}
+                        </Badge>
+                        <Button
+                          variant={device.outOfOrder ? "default" : "destructive"}
+                          size="sm"
+                          onClick={() => handleToggleOutOfOrder(device.name, device.outOfOrder)}
+                        >
+                          {device.outOfOrder ? (
+                            <>
+                              <Wrench className="h-4 w-4 mr-1" />
+                              수리 완료
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="h-4 w-4 mr-1" />
+                              고장 등록
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {filteredOutOfOrderDevices.length === 0 && (
+                    <div className="text-center py-8">
+                      <Settings className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+                      <p className="text-gray-500">표시할 기기가 없습니다.</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 예약 관리 탭 */}
+          <TabsContent value="reservations" className="space-y-6">
+            {/* 필터 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Filter className="h-5 w-5" />
+                  필터
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="reservation-search">검색</Label>
+                    <Input
+                      id="reservation-search"
+                      placeholder="기기명 검색..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="reservation-type">기기 유형</Label>
+                    <Select
+                      value={reservationTypeFilter}
+                      onValueChange={(value: any) => setReservationTypeFilter(value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">전체</SelectItem>
+                        <SelectItem value="WASHER">세탁기</SelectItem>
+                        <SelectItem value="DRYER">건조기</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearchTerm("")
+                        setReservationTypeFilter("all")
+                      }}
+                    >
+                      필터 초기화
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 예약 목록 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>활성 예약 관리</CardTitle>
+                <CardDescription>현재 진행 중인 모든 예약을 관리할 수 있습니다.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {filteredAdminReservations.map((reservation) => (
+                    <div
+                      key={reservation.reservationId}
+                      className="flex items-center justify-between p-4 border rounded-lg"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-full">
+                          {reservation.machineLabel.includes("Washer") ? "🧺" : "🌪️"}
+                        </div>
+                        <div>
+                          <p className="font-medium">{reservation.machineLabel}</p>
+                          <p className="text-sm text-gray-500">
+                            시작: {new Date(reservation.startTime).toLocaleString()}
+                          </p>
+                          <p className="text-sm text-gray-500">남은 시간: {formatTime(reservation.remainingSeconds)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={
+                            reservation.status === "waiting"
+                              ? "secondary"
+                              : reservation.status === "running"
+                                ? "default"
+                                : "outline"
+                          }
+                        >
+                          {reservation.status === "waiting"
+                            ? "대기"
+                            : reservation.status === "running"
+                              ? "사용중"
+                              : reservation.status}
+                        </Badge>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleForceDeleteReservation(reservation.reservationId)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          강제 삭제
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {filteredAdminReservations.length === 0 && (
+                    <div className="text-center py-8">
+                      <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+                      <p className="text-gray-500">활성 예약이 없습니다.</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 신고 관리 탭 */}
+          <TabsContent value="reports" className="space-y-6">
+            {/* 필터 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Filter className="h-5 w-5" />
+                  필터
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="report-search">검색</Label>
+                    <Input
+                      id="report-search"
+                      placeholder="기기명, 사용자명, 내용 검색..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="report-status">상태</Label>
+                    <Select value={reportStatusFilter} onValueChange={(value: any) => setReportStatusFilter(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">전체</SelectItem>
+                        <SelectItem value="pending">대기</SelectItem>
+                        <SelectItem value="in_progress">처리중</SelectItem>
+                        <SelectItem value="resolved">완료</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearchTerm("")
+                        setReportStatusFilter("all")
+                      }}
+                    >
+                      필터 초기화
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 신고 목록 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>고장 신고 관리</CardTitle>
+                <CardDescription>사용자가 신고한 기기 고장을 관리할 수 있습니다.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {filteredReports.map((report) => (
+                    <div key={report.reportId} className="p-4 border rounded-lg">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <AlertTriangle
+                            className={`h-5 w-5 ${
+                              report.status === "pending"
+                                ? "text-red-500"
+                                : report.status === "in_progress"
+                                  ? "text-yellow-500"
+                                  : "text-green-500"
+                            }`}
+                          />
+                          <div>
+                            <p className="font-medium">{report.machineName}</p>
+                            <p className="text-sm text-gray-500">
+                              신고자: {report.reportedByUserName} ({report.reportedByUserNumber})
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={
+                              report.status === "pending"
+                                ? "destructive"
+                                : report.status === "in_progress"
+                                  ? "default"
+                                  : "secondary"
+                            }
                           >
-                            <UserX className="h-4 w-4 mr-1" />
-                            정지
-                          </Button>
-                        ) : (
+                            {report.status === "pending" ? "대기" : report.status === "in_progress" ? "처리중" : "완료"}
+                          </Badge>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              setSelectedUserId(user.id)
-                              setIsUnrestrictDialogOpen(true)
+                              setSelectedReportId(report.reportId)
+                              setSelectedReportStatus(report.status)
+                              setIsReportStatusDialogOpen(true)
                             }}
                           >
-                            <UserCheck className="h-4 w-4 mr-1" />
-                            정지 해제
+                            상태 변경
                           </Button>
-                        )}
+                        </div>
                       </div>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <p className="text-sm">{report.description}</p>
+                      </div>
+                      {report.resolvedAt && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          해결 완료: {new Date(report.resolvedAt).toLocaleString()}
+                        </p>
+                      )}
                     </div>
-                  )
-                })}
-                {filteredAdminUsers.length === 0 && (
-                  <div className="text-center py-8">
-                    <Users className="h-12 w-12 mx-auto text-gray-400 mb-2" />
-                    <p className="text-gray-500">사용자가 없습니다.</p>
+                  ))}
+                  {filteredReports.length === 0 && (
+                    <div className="text-center py-8">
+                      <AlertTriangle className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+                      <p className="text-gray-500">신고가 없습니다.</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 사용자 관리 탭 */}
+          <TabsContent value="users" className="space-y-6">
+            {/* 필터 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Filter className="h-5 w-5" />
+                  필터
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <Label htmlFor="user-search">검색</Label>
+                    <Input
+                      id="user-search"
+                      placeholder="이름, 학번, 호실 검색..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                   </div>
-                )}
+                  <div>
+                    <Label htmlFor="user-gender">성별</Label>
+                    <Select value={userGenderFilter} onValueChange={(value: any) => setUserGenderFilter(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">전체</SelectItem>
+                        <SelectItem value="male">남성</SelectItem>
+                        <SelectItem value="female">여성</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="user-floor">층</Label>
+                    <Select value={userFloorFilter} onValueChange={(value: any) => setUserFloorFilter(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">전체</SelectItem>
+                        <SelectItem value="3">3층</SelectItem>
+                        <SelectItem value="4">4층</SelectItem>
+                        <SelectItem value="5">5층</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearchTerm("")
+                        setUserGenderFilter("all")
+                        setUserFloorFilter("all")
+                      }}
+                    >
+                      필터 초기화
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 사용자 목록 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>사용자 관리</CardTitle>
+                <CardDescription>사용자의 정지 상태를 관리할 수 있습니다.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {filteredAdminUsers.map((user) => {
+                    const restricted = isUserRestricted(user)
+                    return (
+                      <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-full">
+                            <Users className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{user.name}</p>
+                            <p className="text-sm text-gray-500">
+                              {user.schoolNumber} • {user.roomName}호 • {user.gender === "male" ? "남성" : "여성"}
+                            </p>
+                            {/* 정지 상태 표시 */}
+                            {restricted && (
+                              <div className="mt-1">
+                                <Badge variant="destructive" className="text-xs">
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  정지 중
+                                </Badge>
+                                <p className="text-xs text-red-600 mt-1">
+                                  남은 시간: {getRestrictedTimeRemaining(user.restrictedUntil!)}
+                                </p>
+                                {user.restrictionReason && (
+                                  <p className="text-xs text-gray-600 mt-1">사유: {user.restrictionReason}</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {!restricted ? (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedUserId(user.id)
+                                setIsRestrictDialogOpen(true)
+                              }}
+                            >
+                              <UserX className="h-4 w-4 mr-1" />
+                              정지
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedUserId(user.id)
+                                setIsUnrestrictDialogOpen(true)
+                              }}
+                            >
+                              <UserCheck className="h-4 w-4 mr-1" />
+                              정지 해제
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {filteredAdminUsers.length === 0 && (
+                    <div className="text-center py-8">
+                      <Users className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+                      <p className="text-gray-500">사용자가 없습니다.</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        {/* 신고 상태 변경 다이얼로그 */}
+        <Dialog open={isReportStatusDialogOpen} onOpenChange={setIsReportStatusDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>신고 상태 변경</DialogTitle>
+              <DialogDescription>신고의 처리 상태를 변경합니다.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="report-status-select">상태</Label>
+                <Select value={selectedReportStatus} onValueChange={(value: any) => setSelectedReportStatus(value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">대기</SelectItem>
+                    <SelectItem value="in_progress">처리중</SelectItem>
+                    <SelectItem value="resolved">완료</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* 신고 상태 변경 다이얼로그 */}
-      <Dialog open={isReportStatusDialogOpen} onOpenChange={setIsReportStatusDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>신고 상태 변경</DialogTitle>
-            <DialogDescription>신고의 처리 상태를 변경합니다.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="report-status-select">상태</Label>
-              <Select value={selectedReportStatus} onValueChange={(value: any) => setSelectedReportStatus(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">대기</SelectItem>
-                  <SelectItem value="in_progress">처리중</SelectItem>
-                  <SelectItem value="resolved">완료</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsReportStatusDialogOpen(false)}>
-              취소
-            </Button>
-            <Button onClick={handleUpdateReportStatus}>변경</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsReportStatusDialogOpen(false)}>
+                취소
+              </Button>
+              <Button onClick={handleUpdateReportStatus}>변경</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* 사용자 정지 다이얼로그 */}
-      <Dialog open={isRestrictDialogOpen} onOpenChange={setIsRestrictDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>사용자 정지</DialogTitle>
-            <DialogDescription>사용자의 서비스 이용을 일시적으로 정지합니다.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="restriction-duration">정지 기간</Label>
-              <Select value={restrictionDuration} onValueChange={(value: any) => setRestrictionDuration(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1시간">1시간</SelectItem>
-                  <SelectItem value="1일">1일</SelectItem>
-                  <SelectItem value="7일">7일</SelectItem>
-                </SelectContent>
-              </Select>
+        {/* 사용자 정지 다이얼로그 */}
+        <Dialog open={isRestrictDialogOpen} onOpenChange={setIsRestrictDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>사용자 정지</DialogTitle>
+              <DialogDescription>사용자의 서비스 이용을 일시적으로 정지합니다.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="restriction-duration">정지 기간</Label>
+                <Select value={restrictionDuration} onValueChange={(value: any) => setRestrictionDuration(value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1시간">1시간</SelectItem>
+                    <SelectItem value="1일">1일</SelectItem>
+                    <SelectItem value="7일">7일</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="restriction-reason">정지 이유</Label>
+                <Input
+                  id="restriction-reason"
+                  placeholder="정지 이유를 입력하세요..."
+                  value={restrictionReason}
+                  onChange={(e) => setRestrictionReason(e.target.value)}
+                />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="restriction-reason">정지 이유</Label>
-              <Input
-                id="restriction-reason"
-                placeholder="정지 이유를 입력하세요..."
-                value={restrictionReason}
-                onChange={(e) => setRestrictionReason(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsRestrictDialogOpen(false)}>
-              취소
-            </Button>
-            <Button variant="destructive" onClick={handleRestrictUser}>
-              정지
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsRestrictDialogOpen(false)}>
+                취소
+              </Button>
+              <Button variant="destructive" onClick={handleRestrictUser}>
+                정지
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* 사용자 정지 해제 다이얼로그 */}
-      <Dialog open={isUnrestrictDialogOpen} onOpenChange={setIsUnrestrictDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>정지 해제</DialogTitle>
-            <DialogDescription>사용자의 정지 상태를 해제합니다.</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsUnrestrictDialogOpen(false)}>
-              취소
-            </Button>
-            <Button onClick={handleUnrestrictUser}>해제</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {/* 사용자 정지 해제 다이얼로그 */}
+        <Dialog open={isUnrestrictDialogOpen} onOpenChange={setIsUnrestrictDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>정지 해제</DialogTitle>
+              <DialogDescription>사용자의 정지 상태를 해제합니다.</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsUnrestrictDialogOpen(false)}>
+                취소
+              </Button>
+              <Button onClick={handleUnrestrictUser}>해제</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   )
 }
