@@ -1,4 +1,4 @@
-const BASE_URL = "https://api.washer-gsm.com"
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL
 
 // API 응답 타입 정의 - 로그인 응답 구조 업데이트
 export interface AuthResponse {
