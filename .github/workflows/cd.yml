@@ -42,6 +42,5 @@ jobs:
 
     - name: Restart app with PM2
       run: |
-        npx pm2 delete washer-client || true
-        npx pm2 start npm --name washer-client -- start
+        npx pm2 restart washer-client || npx pm2 start npm --name washer-client -- start
         npx pm2 save
