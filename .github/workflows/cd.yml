@@ -1,0 +1,46 @@
+name: Washer-Client CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+
+    strategy:
+      matrix:
+        node-version: [18.x]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Lint
+      run: npm run lint
+      continue-on-error: true
+
+    - name: Type check
+      run: npx tsc --noEmit
+      continue-on-error: true
+
+    - name: Build Next.js app
+      run: npm run build
+
+    - name: Export static site (if using next export)
+      run: npm run export
+
+    - name: Deploy to Nginx directory
+      run: |
+        sudo rm -rf /var/www/html/*
+        sudo cp -r out/* /var/www/html/
