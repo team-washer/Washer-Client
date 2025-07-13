@@ -1,4 +1,4 @@
-name: Washer-Client CI
+name: Washer-Client CD
 
 on:
   push:
@@ -12,7 +12,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.x]
+        node-version: [20.x]
 
     steps:
     - uses: actions/checkout@v4
@@ -34,13 +34,14 @@ jobs:
       run: npx tsc --noEmit
       continue-on-error: true
 
-    - name: Build Next.js app
+    - name: Build app
       run: npm run build
 
-    - name: Export static site (if using next export)
-      run: npm run export
+    - name: Install PM2
+      run: sudo npm install -g pm2
 
-    - name: Deploy to Nginx directory
+    - name: Restart app with PM2
       run: |
-        sudo rm -rf /var/www/html/*
-        sudo cp -r out/* /var/www/html/
+        pm2 delete washer-client || true
+        pm2 start npm --name washer-client -- start
+        pm2 save
