@@ -34,6 +34,9 @@ jobs:
       run: npx tsc --noEmit
       continue-on-error: true
 
+    - name: Copy .env file
+      run: cp /root/.env .env
+
     - name: Build app
       run: npm run build
 
