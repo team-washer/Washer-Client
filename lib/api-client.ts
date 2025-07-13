@@ -878,7 +878,7 @@ export const machineApi = {
   },
 
   getHistory: async (machineId: number) => {
-    return apiRequest<MachineHistoryResponse>(`/machine/${machineId}/history`, {
+    return apiRequest<MachineHistoryResponse>(`/reservation/machine/${machineId}/history`, {
       method: "GET",
     })
   },
