@@ -1,4 +1,4 @@
-name: Washer-Client CD
+name: Washer-Client CI
 
 on:
   push:
@@ -37,11 +37,11 @@ jobs:
     - name: Build app
       run: npm run build
 
-    - name: Install PM2
-      run: sudo npm install -g pm2
+    - name: Install PM2 locally
+      run: npm install pm2
 
     - name: Restart app with PM2
       run: |
-        pm2 delete washer-client || true
-        pm2 start npm --name washer-client -- start
-        pm2 save
+        npx pm2 delete washer-client || true
+        npx pm2 start npm --name washer-client -- start
+        npx pm2 save
