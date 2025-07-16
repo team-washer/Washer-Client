@@ -252,7 +252,7 @@ export default function HomePage() {
           </CardHeader>
           <CardContent className="pt-0 pb-8">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6 h-14 bg-muted p-3 rounded-lg">
+              <TabsList className="grid w-full grid-cols-2 mb-6 bg-muted p-2 rounded-lg">
                 <TabsTrigger
                   value="washing"
                   className="flex items-center gap-2 h-8 rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all text-sm px-4 py-2"
