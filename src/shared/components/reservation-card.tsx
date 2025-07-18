@@ -210,12 +210,6 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
         {/* 예약 정보 */}
         <div className="space-y-2 mb-4">
           <div className="flex items-center text-sm">
-            <User className="h-4 w-4 mr-2 text-[#86A9FF]" />
-            <span className="text-gray-600 dark:text-gray-400">사용자:</span>
-            <span className="ml-1 font-medium dark:text-white">{currentUser?.name || "알 수 없음"}</span>
-          </div>
-
-          <div className="flex items-center text-sm">
             <Building className="h-4 w-4 mr-2 text-[#86A9FF]" />
             <span className="text-gray-600 dark:text-gray-400">호실:</span>
             <span className="ml-1 font-medium dark:text-white">{reservation.roomNumber}</span>
