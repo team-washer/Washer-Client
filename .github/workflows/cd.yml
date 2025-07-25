@@ -44,6 +44,7 @@ jobs:
           
       - name: Deploy to nginx
         run: |
+          sudo mkdir -p /var/www/washer-client
           sudo rm -rf /var/www/washer-client/*
           sudo cp -r ./out/* /var/www/washer-client/
           sudo chown -R www-data:www-data /var/www/washer-client
