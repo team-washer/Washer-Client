@@ -27,6 +27,7 @@ import {
   getMachineJobStateInfo,
   parseTimeStringToSeconds,
   type UserInfo,
+  UserInfoResponse,
 } from "@/shared/lib/api-client"
 import { formatTime } from "@/shared/lib/utils"
 import { usePullToRefresh } from "@/shared/hooks/use-pull-to-refresh"
@@ -35,7 +36,7 @@ export default function MyPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(true)
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
+  const [userInfo, setUserInfo] = useState<UserInfoResponse | null>(null)
   const [remainingTime, setRemainingTime] = useState<number>(0)
   const [refreshCooldown, setRefreshCooldown] = useState(0)
   const [actionLoading, setActionLoading] = useState(false)
@@ -46,24 +47,21 @@ export default function MyPage() {
     try {
       setIsLoading(true)
       const response = await userApi.getMyInfo()
-
-      if (response.success) {
+      
+      if (response.status===200 && response.data) {
         setUserInfo(response.data)
 
         // 서버에서 받은 remainingTime을 우선적으로 사용
-        if (response.data.remainingTime && response.data.remainingTime !== "00:00:00") {
+        if (userInfo?.remainingTime !== "00:00:00") {
           // 서버에서 받은 remainingTime 파싱 (HH:MM:SS 형식)
-          const parsedTime = parseTimeStringToSeconds(response.data.remainingTime)
+          const parsedTime = parseTimeStringToSeconds(userInfo?.remainingTime ?? "")
           setRemainingTime(parsedTime)
-        } else if (response.data.remainingSeconds && response.data.remainingSeconds > 0) {
-          // remainingSeconds가 있으면 사용
-          setRemainingTime(response.data.remainingSeconds)
         } else {
           // 서버에서 시간 정보가 없을 때만 클라이언트에서 추정
-          if (response.data.status === "waiting") {
+          if (userInfo?.status === "waiting") {
             // 대기 중: 5분 (300초)
             setRemainingTime(300)
-          } else if (response.data.status === "confirmed") {
+          } else if (userInfo?.status === "confirmed") {
             // 확정됨: 2분 (120초) - 서버 연결 대기 시간
             setRemainingTime(120)
           } else {
@@ -71,7 +69,7 @@ export default function MyPage() {
           }
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to load user info:", error)
       toast({
         title: "사용자 정보 로드 실패",
@@ -129,8 +127,8 @@ export default function MyPage() {
     try {
       const response = await machineApi.getDevices()
 
-      if (response.success) {
-        const { washer, dryer } = response.data
+      if (response.status === 200 && response.data) {
+        const { washer, dryer } = response.data.data
         const allMachines = [...washer, ...dryer]
 
         // 현재 예약된 기기 찾기
@@ -159,7 +157,7 @@ export default function MyPage() {
 
             // 사용자 정보 새로고침하여 running 상태로 업데이트
             const updatedUserInfo = await userApi.getMyInfo()
-            if (updatedUserInfo.success) {
+            if (updatedUserInfo.status === 200 && updatedUserInfo.data) {
               setUserInfo(updatedUserInfo.data)
             }
 
@@ -241,7 +239,7 @@ export default function MyPage() {
     try {
       const response = await reservationApi.deleteReservation(userInfo.reservationId)
 
-      if (response.success) {
+      if (response.status === 200) {
         // 기기 상태 체크 중단
         if (machineCheckInterval) {
           clearInterval(machineCheckInterval)
@@ -255,11 +253,11 @@ export default function MyPage() {
 
         // 사용자 정보 새로고침
         const updatedUserInfo = await userApi.getMyInfo()
-        if (updatedUserInfo.success) {
+        if (updatedUserInfo.status === 200) {
           setUserInfo(updatedUserInfo.data)
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Cancel reservation error:", error)
       toast({
         title: "예약 취소 실패",
@@ -276,12 +274,12 @@ export default function MyPage() {
 
     setActionLoading(true)
     try {
-      const response = await reservationApi.confirmReservation(userInfo.reservationId)
+      const response = await reservationApi.confirmReservation(userInfo?.reservationId)
 
-      if (response.success) {
-        const machineType = userInfo.machineLabel?.toLowerCase().includes("dryer") ? "건조" : "세탁"
+      if (response.status === 200) {
+        const machineType = userInfo?.machineLabel?.toLowerCase().includes("dryer") ? "건조" : "세탁"
 
-        if (userInfo.status === "waiting") {
+        if (userInfo?.status === "waiting") {
           toast({
             title: "예약 확정 완료",
             description: `예약이 확정되었습니다. ${machineType} 시작 버튼을 눌러주세요.`,
@@ -295,11 +293,11 @@ export default function MyPage() {
 
         // 사용자 정보 새로고침
         const updatedUserInfo = await userApi.getMyInfo()
-        if (updatedUserInfo.success) {
+        if (updatedUserInfo.status === 200) {
           setUserInfo(updatedUserInfo.data)
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Confirm reservation error:", error)
       toast({
         title: "예약 확정 실패",

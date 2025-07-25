@@ -5,7 +5,7 @@ import { Button } from "@/shared/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
 import { Separator } from "@/shared/components/ui/separator"
-import { Clock, Shirt, Wind, User, Building, AlertTriangle, CheckCircle, XCircle, Zap } from "lucide-react"
+import { Clock, Shirt, Wind, Building, AlertTriangle, CheckCircle, XCircle, Zap } from "lucide-react"
 import { useReservationStore, type Reservation } from "@/shared/lib/reservation-store"
 import { formatTime } from "@/shared/lib/utils"
 import { useToast } from "@/shared/components/ui/use-toast"
@@ -47,10 +47,10 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
         })
 
         // 데이터 새로고침
-        await fetchMyInfo(userId)
+        await fetchMyInfo()
         await fetchMachines()
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Confirm reservation error:", error)
 
       let errorMessage = "예약 확인 중 오류가 발생했습니다."
@@ -59,7 +59,7 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
         errorMessage = "예약을 찾을 수 없습니다. 이미 취소되었거나 만료되었을 수 있습니다."
         // 404 에러인 경우 로컬에서도 제거
         cancelReservation(reservation.id)
-        await fetchMyInfo(userId)
+        await fetchMyInfo()
         await fetchMachines()
       } else if (error?.message) {
         errorMessage = error.message
@@ -94,10 +94,10 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
         cancelReservation(reservation.id)
 
         // 데이터 새로고침
-        await fetchMyInfo(userId)
+        await fetchMyInfo()
         await fetchMachines()
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Cancel reservation error:", error)
 
       let errorMessage = "예약 취소 중 오류가 발생했습니다."
@@ -106,7 +106,7 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
         errorMessage = "예약을 찾을 수 없습니다. 이미 취소되었거나 만료되었을 수 있습니다."
         // 404 에러인 경우 로컬에서도 제거
         cancelReservation(reservation.id)
-        await fetchMyInfo(userId)
+        await fetchMyInfo()
         await fetchMachines()
       } else if (error?.message) {
         errorMessage = error.message

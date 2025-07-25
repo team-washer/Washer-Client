@@ -67,8 +67,6 @@ const Toast = React.forwardRef<
       ref={ref}
       className={cn(toastVariants({ variant }), className)}
       duration={3000}
-      swipeDirection="up"
-      swipeThreshold={50}
       {...props}
     >
       <div className="w-full">
