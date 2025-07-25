@@ -2,7 +2,7 @@
 
 import type React from 'react';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/shared/components/ui/button';
@@ -19,9 +19,7 @@ import { Label } from '@/shared/components/ui/label';
 import { Checkbox } from '@/shared/components/ui/checkbox';
 import { useToast } from '@/shared/components/ui/use-toast';
 import { Shirt, Eye, EyeOff } from 'lucide-react';
-import { authApi, tokenManager } from '@/shared/lib/api-client';
-import { useReservationStore } from '@/shared/lib/reservation-store';
-import { requestPermission } from '@/shared/lib/firebase';
+import axios from 'axios';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,28 +31,6 @@ export default function LoginPage() {
     password: '',
     rememberMe: false,
   });
-  const { fetchMyInfo } = useReservationStore();
-
-  useEffect(() => {
-    // 기존 토큰 확인
-    if (tokenManager.hasToken()) {
-      router.push('/');
-      return;
-    }
-
-    // 로그인 유지 확인
-    const savedEmail = localStorage.getItem('savedEmail');
-    const rememberMe = localStorage.getItem('rememberMe') === 'true';
-
-    if (savedEmail && rememberMe) {
-      const emailPrefix = savedEmail.replace('@gsm.hs.kr', '');
-      setFormData((prev) => ({
-        ...prev,
-        emailPrefix,
-        rememberMe: true,
-      }));
-    }
-  }, [router]);
 
   const validatePassword = (password: string) => {
     const errors: string[] = [];
@@ -90,7 +66,7 @@ export default function LoginPage() {
     setFormData((prev) => ({ ...prev, rememberMe: checked }));
   };
 
-  const getDetailedErrorMessage = (error: any): string => {
+  const getDetailedErrorMessage = (error): string => {
     // 네트워크 오류 체크
     if (!navigator.onLine) {
       return '인터넷 연결을 확인해주세요.';
@@ -187,43 +163,18 @@ export default function LoginPage() {
 
     setIsLoading(true);
 
-    const fullEmail = `${formData.emailPrefix}@gsm.hs.kr`;
-
     try {
-      const response = await authApi.signin(fullEmail, formData.password);
-
-      // 로그인 상태 저장 (기존 코드와 호환성을 위해)
-      localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('studentId', fullEmail);
-
-      // 로그인 유지 처리
-      if (formData.rememberMe) {
-        localStorage.setItem('savedEmail', fullEmail);
-        localStorage.setItem('rememberMe', 'true');
-      } else {
-        localStorage.removeItem('savedEmail');
-        localStorage.removeItem('rememberMe');
-      }
-
-      // 로그인 성공 후 즉시 사용자 정보 가져오기
-      try {
-        await fetchMyInfo(fullEmail);
-        requestPermission();
-      } catch (userInfoError) {
-        console.error(
-          '❌ Failed to fetch user info after login:',
-          userInfoError
-        );
-        // 사용자 정보 가져오기 실패해도 로그인은 진행
-      }
-
+      await axios.post('/api/auth/signin', {
+        email: `${formData.emailPrefix}@gsm.hs.kr`,
+        password: formData.password,
+      });
       toast({
         title: '로그인 성공',
         description: '환영합니다!',
       });
 
       router.push('/');
-    } catch (error: any) {
+    } catch (error) {
       const errorMessage = getDetailedErrorMessage(error);
 
       toast({

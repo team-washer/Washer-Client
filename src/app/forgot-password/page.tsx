@@ -70,7 +70,7 @@ export default function ForgotPasswordPage() {
         description: `${fullEmail}로 인증코드를 발송했습니다.`,
       })
       setCurrentStep("verification")
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "인증코드 발송 실패",
         description: error.message || "인증코드 발송 중 오류가 발생했습니다.",
@@ -125,7 +125,7 @@ export default function ForgotPasswordPage() {
         description: "비밀번호가 성공적으로 변경되었습니다.",
       })
       setCurrentStep("complete")
-    } catch (error: any) {
+    } catch (error) {
       console.error("Password change error:", error)
 
       let errorMessage = "비밀번호 변경 중 오류가 발생했습니다."

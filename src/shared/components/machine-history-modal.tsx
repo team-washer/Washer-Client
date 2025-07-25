@@ -46,7 +46,7 @@ export function MachineHistoryModal({
       if (response.success) {
         setHistoryData(response.data);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('❌ Failed to load machine history:', error);
       toast({
         title: '히스토리 로드 실패',

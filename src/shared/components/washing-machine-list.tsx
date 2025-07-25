@@ -37,8 +37,8 @@ export function WashingMachineList() {
 
   const currentUser = getCurrentUser()
   const userId = currentUser?.id || localStorage.getItem("studentId") || ""
-  const userRoomNumber = currentUser?.roomNumber || localStorage.getItem("roomNumber") || ""
-  const accessibleFloors = getAccessibleFloors(userId)
+  const userRoomNumber = currentUser?.roomNumber || ""
+  const accessibleFloors = getAccessibleFloors(userRoomNumber)
 
   // 새로고침 쿨다운 타이머
   useEffect(() => {
@@ -57,9 +57,8 @@ export function WashingMachineList() {
     setRefreshCooldown(5) // 5초 쿨다운
     try {
       await fetchMachines()
-      if (userId) {
-        await fetchMyInfo(userId)
-      }
+
+      await fetchMyInfo()
       toast({
         title: "새로고침 완료",
         description: "세탁기 정보가 업데이트되었습니다.",
@@ -152,17 +151,17 @@ export function WashingMachineList() {
     try {
       const response = await reservationApi.createReservation(machineServerId)
 
-      if (response.success) {
+      if (response.data.success) {
         toast({
           title: "예약 성공",
           description: "세탁기가 예약되었습니다. 5분 이내에 확정해주세요.",
         })
 
         // 데이터 새로고침
-        await fetchMyInfo(userId)
+        await fetchMyInfo()
         await fetchMachines()
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Reservation error:", error)
 
       let errorMessage = "예약 중 오류가 발생했습니다."
@@ -284,7 +283,7 @@ export function WashingMachineList() {
             </div>
 
             {/* 기기 목록 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {floorMachines
                 .sort((a, b) => a.location.localeCompare(b.location))
                 .map((machine) => {
@@ -298,13 +297,12 @@ export function WashingMachineList() {
                   return (
                     <Card
                       key={machine.id}
-                      className={`transition-all duration-200 hover:shadow-md ${
-                        status.status === "available"
-                          ? "border-green-200 hover:border-green-300 dark:border-green-800"
-                          : status.status === "broken"
-                            ? "border-red-200 dark:border-red-800"
-                            : "border-gray-200 dark:border-gray-700"
-                      }`}
+                      className={`transition-all duration-200 hover:shadow-md ${status.status === "available"
+                        ? "border-green-200 hover:border-green-300 dark:border-green-800"
+                        : status.status === "broken"
+                          ? "border-red-200 dark:border-red-800"
+                          : "border-gray-200 dark:border-gray-700"
+                        }`}
                     >
                       <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
@@ -314,11 +312,9 @@ export function WashingMachineList() {
                           </CardTitle>
                           <Badge className={`${status.color} text-white border-0 text-xs`}>{status.text}</Badge>
                         </div>
-                        <CardDescription className="text-xs">
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {machine.location} 위치
-                          </div>
+                        <CardDescription className="text-xs flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {machine.location} 위치
                         </CardDescription>
                       </CardHeader>
 
@@ -349,11 +345,10 @@ export function WashingMachineList() {
                           reservationInfo.remainingTime &&
                           reservationInfo.remainingTime > 0 && (
                             <div
-                              className={`flex items-center gap-2 text-sm ${
-                                reservationInfo.reservationStatus === "running"
-                                  ? "text-yellow-600 dark:text-yellow-400"
-                                  : "text-orange-600 dark:text-orange-400"
-                              }`}
+                              className={`flex items-center gap-2 text-sm ${reservationInfo.reservationStatus === "running"
+                                ? "text-yellow-600 dark:text-yellow-400"
+                                : "text-orange-600 dark:text-orange-400"
+                                }`}
                             >
                               <Clock className="h-4 w-4" />
                               <span>
@@ -406,14 +401,14 @@ export function WashingMachineList() {
                             status.status === "confirmed" ||
                             status.status === "running" ||
                             status.status === "collection") && (
-                            <Button
-                              variant="outline"
-                              disabled
-                              className="flex-1 text-sm py-2 cursor-not-allowed bg-transparent"
-                            >
-                              {isMyMachine ? "내 예약" : "사용 중"}
-                            </Button>
-                          )}
+                              <Button
+                                variant="outline"
+                                disabled
+                                className="flex-1 text-sm py-2 cursor-not-allowed bg-transparent"
+                              >
+                                {isMyMachine ? "내 예약" : "사용 중"}
+                              </Button>
+                            )}
 
                           {/* 고장 신고 버튼 */}
                           <ReportMachineModal machineName={machine.id} machineType="washing" />

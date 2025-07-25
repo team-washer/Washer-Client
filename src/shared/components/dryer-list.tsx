@@ -130,10 +130,10 @@ export function DryerList() {
         })
 
         // 데이터 새로고침
-        await fetchMyInfo(userId)
+        await fetchMyInfo()
         await fetchMachines()
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Reservation error:", error)
 
       let errorMessage = "예약 중 오류가 발생했습니다."
@@ -279,13 +279,12 @@ export function DryerList() {
                   return (
                     <Card
                       key={machine.id}
-                      className={`transition-all duration-200 hover:shadow-md ${
-                        status.status === "available"
+                      className={`transition-all duration-200 hover:shadow-md ${status.status === "available"
                           ? "border-green-200 hover:border-green-300 dark:border-green-800"
                           : status.status === "broken"
                             ? "border-red-200 dark:border-red-800"
                             : "border-gray-200 dark:border-gray-700"
-                      }`}
+                        }`}
                     >
                       <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
@@ -295,11 +294,9 @@ export function DryerList() {
                           </CardTitle>
                           <Badge className={`${status.color} text-white border-0 text-xs`}>{status.text}</Badge>
                         </div>
-                        <CardDescription className="text-xs">
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {machine.location} 위치
-                          </div>
+                        <CardDescription className="text-xs flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {machine.location} 위치
                         </CardDescription>
                       </CardHeader>
 
@@ -330,11 +327,10 @@ export function DryerList() {
                           reservationInfo.remainingTime &&
                           reservationInfo.remainingTime > 0 && (
                             <div
-                              className={`flex items-center gap-2 text-sm ${
-                                reservationInfo.reservationStatus === "running"
+                              className={`flex items-center gap-2 text-sm ${reservationInfo.reservationStatus === "running"
                                   ? "text-yellow-600 dark:text-yellow-400"
                                   : "text-orange-600 dark:text-orange-400"
-                              }`}
+                                }`}
                             >
                               <Clock className="h-4 w-4" />
                               <span>
@@ -387,14 +383,14 @@ export function DryerList() {
                             status.status === "confirmed" ||
                             status.status === "running" ||
                             status.status === "collection") && (
-                            <Button
-                              variant="outline"
-                              disabled
-                              className="flex-1 text-sm py-2 cursor-not-allowed bg-transparent"
-                            >
-                              {isMyMachine ? "내 예약" : "사용 중"}
-                            </Button>
-                          )}
+                              <Button
+                                variant="outline"
+                                disabled
+                                className="flex-1 text-sm py-2 cursor-not-allowed bg-transparent"
+                              >
+                                {isMyMachine ? "내 예약" : "사용 중"}
+                              </Button>
+                            )}
 
                           {/* 고장 신고 버튼 */}
                           <ReportMachineModal machineName={machine.id} machineType="dryer" />

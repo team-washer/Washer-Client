@@ -32,17 +32,15 @@ export default function HomePage() {
     decrementTimers,
   } = useReservationStore()
 
-  const currentUser = getCurrentUser()
+  const currentUser = getCurrentUser();
   const [userId, setUserId] = useState("")
   const [userRoomNumber, setUserRoomNumber] = useState("")
 
   // localStorage 접근을 위한 useEffect (한 번만 실행)
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const storedUserId = localStorage.getItem("studentId") || ""
-      const storedRoomNumber = localStorage.getItem("roomNumber") || ""
-      setUserId(currentUser?.id || storedUserId)
-      setUserRoomNumber(currentUser?.roomNumber || storedRoomNumber)
+      setUserId(currentUser?.id ?? "")
+      setUserRoomNumber(currentUser?.roomNumber ?? "")
     }
   }, [currentUser])
 
@@ -59,12 +57,6 @@ export default function HomePage() {
     const initializeData = async () => {
       if (typeof window === "undefined") return
 
-      const isLoggedIn = localStorage.getItem("isLoggedIn") === "true"
-      if (!isLoggedIn) {
-        router.push("/login")
-        return
-      }
-
       setIsLoading(true)
 
       try {
@@ -72,10 +64,7 @@ export default function HomePage() {
         await fetchMachines()
 
         // 2순위: 사용자 정보 로드
-        const currentUserId = currentUser?.id || localStorage.getItem("studentId")
-        if (currentUserId) {
-          await fetchMyInfo(currentUserId)
-        }
+        await fetchMyInfo()
 
         setIsInitialized(true) // 초기화 완료 표시
       } catch (error) {
@@ -119,9 +108,7 @@ export default function HomePage() {
     setRefreshCooldown(5)
     try {
       await fetchMachines()
-      if (userId) {
-        await fetchMyInfo(userId)
-      }
+      await fetchMyInfo()
       toast({
         title: "새로고침 완료",
         description: "최신 정보로 업데이트되었습니다.",
@@ -140,7 +127,7 @@ export default function HomePage() {
     disabled: isLoading,
   })
 
-  const userReservations = reservations.filter((r) => r.userId === userId)
+  const userReservations = reservations.filter((r) => r.roomNumber === userRoomNumber)
 
   // 통계 계산
   const totalMachines = machines.length

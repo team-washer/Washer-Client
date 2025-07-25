@@ -8,43 +8,44 @@ import { Sheet, SheetContent, SheetTrigger } from "@/shared/components/ui/sheet"
 import { Shirt, User, LogOut, Home, ClipboardList, ShieldAlert, Menu } from "lucide-react"
 import { useToast } from "@/shared/components/ui/use-toast"
 import { useReservationStore } from "@/shared/lib/reservation-store"
-import { authApi, tokenManager } from "@/shared/lib/api-client"
+import { authApi, userApi, UserInfoResponse } from "@/shared/lib/api-client"
+import { RoleDecryption } from "../lib/role-decryption"
 
 export function Navbar() {
   const router = useRouter()
   const pathname = usePathname()
   const { toast } = useToast()
+  const [user, setUser] = useState<UserInfoResponse | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [studentId, setStudentId] = useState("")
   const [isAdmin, setIsAdmin] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
-  const { getCurrentUser, fetchMyInfo } = useReservationStore()
+  const { fetchMyInfo } = useReservationStore()
+  const isAuthPage = pathname === "/login" || pathname === "/register" || pathname === "/forgot-password"
 
   useEffect(() => {
-    const loggedIn = localStorage.getItem("isLoggedIn") === "true"
-    const id = localStorage.getItem("studentId") || ""
-    const token = tokenManager.getToken()
-
-    setStudentId(id)
-    setIsAuthenticated(loggedIn)
-
-    if (loggedIn && id && token && token !== "null" && token !== "undefined") {
-      // 암호화된 역할 정보 확인
-      const userRole = roleManager.getRole()
-      const isAdminUser = roleManager.isAdmin()
-
-      setIsAdmin(isAdminUser)
-
-      // 유효한 토큰이 있을 때만 사용자 정보 가져오기
-      fetchMyInfo(id)
-        .then(() => {
-          const user = getCurrentUser()
-        })
-        .catch((error) => {
-          console.error("❌ Failed to fetch user info in navbar:", error)
-        })
+    // 관리자 여부 확인
+    if (RoleDecryption() === 'ROLE_ADMIN') {
+      setIsAdmin(true);
     }
-  }, [pathname, fetchMyInfo, getCurrentUser])
+
+    if (!isAuthPage) {
+      setIsAuthenticated(true);
+    }else if(isAuthPage) {
+      setIsAuthenticated(false);
+    }
+
+    fetchMyInfo()
+    const fetchUserInfo = async () => {
+      try {
+        const userInfo = await userApi.getMyInfo()
+        setUser(userInfo.data);
+      } catch (error) {
+        console.error("Failed to fetch user info:", error)
+        setUser(null)
+      }
+    }
+    fetchUserInfo()
+  }, [pathname, fetchMyInfo, isAuthPage])
 
   const handleLogout = async () => {
     try {
@@ -54,9 +55,6 @@ export function Navbar() {
       console.error("Logout error:", error)
     }
 
-    localStorage.removeItem("isLoggedIn")
-    localStorage.removeItem("studentId")
-    roleManager.clearRole() // 역할 정보도 삭제
     setIsOpen(false)
 
     toast({
@@ -75,8 +73,6 @@ export function Navbar() {
     return null
   }
 
-  const user = getCurrentUser()
-
   const navigationItems = [
     {
       href: "/",
@@ -92,13 +88,13 @@ export function Navbar() {
     },
     ...(isAdmin
       ? [
-          {
-            href: "/admin",
-            label: "관리자",
-            icon: ShieldAlert,
-            active: pathname === "/admin",
-          },
-        ]
+        {
+          href: "/admin",
+          label: "관리자",
+          icon: ShieldAlert,
+          active: pathname === "/admin",
+        },
+      ]
       : []),
   ]
 
@@ -116,9 +112,8 @@ export function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  item.active ? "bg-[#A8C2FF] text-[#6487DB]" : "text-gray-600 hover:bg-[#EDF2FF]"
-                }`}
+                className={`px-3 py-2 rounded-md text-sm font-medium ${item.active ? "bg-[#A8C2FF] text-[#6487DB]" : "text-gray-600 hover:bg-[#EDF2FF]"
+                  }`}
               >
                 <div className="flex items-center">
                   <item.icon className="h-4 w-4 mr-1" />
@@ -136,7 +131,7 @@ export function Navbar() {
               <div className="text-sm font-medium text-gray-700">
                 {user ? (
                   <>
-                    {user.studentId || user.id} {user.name}
+                    {user.schoolNumber} {user.name}
                   </>
                 ) : (
                   "로딩 중..."
@@ -179,7 +174,7 @@ export function Navbar() {
                         <div className="text-sm font-medium text-gray-900 truncate">
                           {user ? (
                             <>
-                              {user.studentId || user.id} {user.name}
+                              {user.schoolNumber} {user.name}
                             </>
                           ) : (
                             "로딩 중..."
@@ -202,9 +197,8 @@ export function Navbar() {
                         key={item.href}
                         href={item.href}
                         onClick={closeSheet}
-                        className={`flex items-center px-3 py-3 rounded-md text-sm font-medium transition-colors ${
-                          item.active ? "bg-[#A8C2FF] text-[#6487DB]" : "text-gray-600 hover:bg-[#EDF2FF]"
-                        }`}
+                        className={`flex items-center px-3 py-3 rounded-md text-sm font-medium transition-colors ${item.active ? "bg-[#A8C2FF] text-[#6487DB]" : "text-gray-600 hover:bg-[#EDF2FF]"
+                          }`}
                       >
                         <item.icon className="h-5 w-5 mr-3" />
                         {item.label}

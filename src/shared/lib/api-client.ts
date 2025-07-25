@@ -1,5 +1,6 @@
-import axios from 'axios';
+import axios, { AxiosHeaders } from 'axios';
 import { UserRole } from './auth-utils';
+import { apiClient } from './api-request';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -178,13 +179,12 @@ export interface AdminReservationsResponse {
   timestamp: string;
 }
 
-// User API 타입 정의 - restrictedUntil과 restrictionReason 추가
 export interface UserInfo {
   id: string;
   name: string;
   schoolNumber?: string;
   roomNumber: string;
-  gender: 'male' | 'female';
+  gender: 'MALE' | 'FEMALE';
   restrictedUntil: string | null;
   restrictionReason: string | null;
   reservationId?: number;
@@ -192,21 +192,29 @@ export interface UserInfo {
   status?: 'waiting' | 'reserved' | 'confirmed' | 'running';
   startTime?: string;
   remainingSeconds?: number;
-  remainingTime?: string; // 새로 추가
 }
 
 export interface UserInfoResponse {
-  success: boolean;
-  data: UserInfo;
-  message: string;
-  timestamp: string;
+  completedAt: Date | null;
+  gender: string;
+  id: string;
+  machineLabel: string | null;
+  name: string;
+  remainingTime: string | null;
+  reservationId: number | null;
+  restrictedUntil: string | null;
+  restrictionReason: string | null;
+  roomNumber: string;
+  schoolNumber: string;
+  startTime: Date | null;
+  status: 'waiting' | 'reserved' | 'confirmed' | 'running';
 }
 
 export interface AdminUserInfo {
   id: number;
   name: string;
   schoolNumber: string;
-  gender: 'male' | 'female';
+  gender: 'MALE' | 'FEMALE';
   roomName: string;
   restrictedUntil: string | null;
   restrictionReason: string | null;
@@ -488,250 +496,10 @@ const safeTokenLog = (
 // 로그아웃 및 리다이렉트 헬퍼 함수
 const forceLogout = async (reason = 'Authentication failed') => {
   if (typeof window !== 'undefined') {
-    // auth-utils에서 로그인 상태를 false로 설정
-    try {
-      const { authStore } = await import('./auth-utils');
-      authStore.getState().setIsLoggedIn(false);
-    } catch (error) {
-      console.error('❌ Failed to update auth state:', error);
-    }
-
-    // 로컬스토리지 완전 초기화
-    localStorage.clear();
-
-    // 세션스토리지도 초기화
-    sessionStorage.clear();
-
-    // 쿠키도 초기화 (만약 있다면)
-    document.cookie.split(';').forEach((c) => {
-      const eqPos = c.indexOf('=');
-      const name = eqPos > -1 ? c.substr(0, eqPos) : c;
-      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
-    });
-
-    // 현재 페이지가 로그인 페이지가 아닌 경우에만 리다이렉트
-    if (window.location.pathname !== '/login') {
-      window.location.href = '/login';
-      // 강제 새로고침으로 완전히 초기화
-      setTimeout(() => {
-        window.location.reload();
-      }, 100);
-    }
+    await axios.post('/api/auth/logout', {});
   }
 };
 
-// 간단한 토큰 관리
-export const tokenManager = {
-  getToken: () => {
-    if (typeof window === 'undefined') return null;
-    const token = localStorage.getItem('authToken');
-    return token;
-  },
-
-  setToken: async (token: string) => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem('authToken', token);
-
-    // 토큰 설정 시 isLoggedIn을 true로 설정
-    try {
-      const { authStore } = await import('./auth-utils');
-      authStore.getState().setIsLoggedIn(true);
-    } catch (error) {
-      console.error('❌ Failed to update auth state:', error);
-    }
-  },
-
-  clearToken: async () => {
-    if (typeof window === 'undefined') return;
-    localStorage.removeItem('authToken');
-
-    // 토큰 삭제 시 isLoggedIn을 false로 설정
-    try {
-      const { authStore } = await import('./auth-utils');
-      authStore.getState().setIsLoggedIn(false);
-    } catch (error) {
-      console.error('❌ Failed to update auth state:', error);
-    }
-  },
-
-  hasToken: () => {
-    const token = tokenManager.getToken();
-    return token && token !== 'null' && token !== 'undefined';
-  },
-
-  // 토큰 유효성 검사 및 로그인 상태 동기화
-  validateAndSyncAuth: async () => {
-    const token = tokenManager.getToken();
-    const hasValidToken = token && token !== 'null' && token !== 'undefined';
-
-    try {
-      const { authStore } = await import('./auth-utils');
-      const currentLoginState = authStore.getState().isLoggedIn;
-
-      // 토큰 상태와 로그인 상태가 일치하지 않으면 동기화
-      if (hasValidToken !== currentLoginState) {
-        authStore.getState().setIsLoggedIn(hasValidToken);
-      }
-
-      // 토큰이 없으면 강제 로그아웃
-      if (!hasValidToken && currentLoginState) {
-        await forceLogout('Token validation failed');
-      }
-
-      return hasValidToken;
-    } catch (error) {
-      console.error('❌ Failed to validate and sync auth:', error);
-      return false;
-    }
-  },
-};
-
-// API 요청 헬퍼
-export async function apiRequest<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const url = `${BASE_URL}${endpoint}`;
-
-  const defaultHeaders: HeadersInit = {
-    'Content-Type': 'application/json',
-    'ngrok-skip-browser-warning': 'true',
-  };
-
-  // 인증이 필요한 엔드포인트 체크
-  const isAuthEndpoint = endpoint.includes('/auth/');
-  const needsAuth = !isAuthEndpoint;
-
-  if (needsAuth) {
-    // 토큰 유효성 검사 및 상태 동기화
-    const isValidAuth = await tokenManager.validateAndSyncAuth();
-
-    if (!isValidAuth) {
-      await forceLogout('No valid authentication');
-      return Promise.reject(new Error('No access token'));
-    }
-
-    const token = tokenManager.getToken();
-    defaultHeaders.Authorization = `Bearer ${token}`;
-  }
-
-  const config: RequestInit = {
-    method: 'GET',
-    mode: 'cors',
-    credentials: 'omit',
-    ...options,
-    headers: {
-      ...defaultHeaders,
-      ...options.headers,
-    },
-  };
-
-  try {
-    const response = await fetch(url, config);
-
-    // 401 Unauthorized 처리 - 즉시 로그아웃
-    if (response.status === 401 && needsAuth) {
-      await forceLogout('Authentication expired or invalid');
-      throw new Error('Authentication failed');
-    }
-
-    // 403 Forbidden 처리 - 권한 없음
-    if (response.status === 403) {
-      await forceLogout('Insufficient permissions');
-      throw new Error('Access forbidden');
-    }
-
-    if (!response.ok) {
-      let errorText = '';
-      let errorData: any = {};
-
-      try {
-        errorText = await response.text();
-        console.error(`❌ API Error Response: ${response.status}`, errorText);
-      } catch (readError) {
-        console.error('❌ Failed to read error response:', readError);
-        errorText = `HTTP ${response.status} ${response.statusText}`;
-      }
-
-      // JSON 파싱 시도
-      try {
-        if (errorText.trim()) {
-          errorData = JSON.parse(errorText);
-        }
-      } catch (parseError) {
-        errorData = { message: errorText };
-      }
-
-      // 오류 메시지 결정
-      let errorMessage = '';
-
-      if (errorData.message) {
-        errorMessage = errorData.message;
-      } else if (errorData.error?.message) {
-        errorMessage = errorData.error.message;
-      } else if (errorText && errorText.trim()) {
-        errorMessage = errorText;
-      } else {
-        errorMessage = `HTTP error! status: ${response.status}`;
-      }
-
-      const apiError = {
-        message: errorMessage,
-        status: response.status,
-        originalResponse: errorText,
-      } as ApiError;
-
-      throw apiError;
-    }
-
-    if (response.status === 204) {
-      return {} as T;
-    }
-
-    const responseText = await response.text();
-
-    if (!responseText.trim()) {
-      return {} as T;
-    }
-
-    try {
-      const responseData = JSON.parse(responseText);
-      return responseData;
-    } catch (parseError) {
-      console.error(`❌ JSON parse error:`, parseError);
-      throw new Error(
-        `서버에서 올바르지 않은 형식의 응답을 받았습니다: ${responseText}`
-      );
-    }
-  } catch (error) {
-    console.error(`💥 API Error:`, error);
-
-    // 네트워크 오류인 경우에도 로그아웃 처리 (서버 연결 불가 등)
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      await forceLogout('Network connection failed');
-    }
-
-    // 이미 ApiError 객체인 경우 그대로 throw
-    if (
-      error &&
-      typeof error === 'object' &&
-      'status' in error &&
-      'message' in error
-    ) {
-      throw error;
-    }
-
-    // Error 객체인 경우 그대로 throw
-    if (error instanceof Error) {
-      throw error;
-    }
-
-    // 그 외의 경우만 네트워크 오류로 처리
-    throw new Error('Network error occurred');
-  }
-}
-
-// Auth API 함수들
 export const authApi = {
   signup: async (data: {
     email: string;
@@ -741,30 +509,23 @@ export const authApi = {
     gender: string;
     room: string;
   }) => {
-    return apiRequest<void>('/auth/signup', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    return axios.post('/api/auth/signup', data);
   },
 
   sendSignupVerification: async (email: string) => {
-    return apiRequest<void>('/auth/signup/mailsend', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    });
+    axios.post('/api/auth/signup/mailsend', { email });
   },
 
   verifySignupEmail: async (email: string, code: string) => {
-    return apiRequest<void>('/auth/signup/emailverify', {
-      method: 'POST',
-      body: JSON.stringify({ email, code }),
+    return axios.post('/api/auth/signup/emailverify', {
+      email,
+      code,
     });
   },
 
   signin: async (email: string, password: string) => {
     try {
       const response = await axios.post(`/api/signin`, { email, password });
-      console.log(response.data);
     } catch (error) {
       console.error('❌ Login API error:', error);
       throw error;
@@ -772,42 +533,32 @@ export const authApi = {
   },
 
   sendPasswordChangeVerification: async (email: string) => {
-    return apiRequest<void>('/auth/pwchange/mailsend', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
+    return axios.post('/api/auth/pwchange/mailsend', {
+      email,
     });
   },
 
   changePassword: async (email: string, password: string, code: string) => {
-    return apiRequest<void>('/auth/pwchange', {
-      method: 'POST',
-      body: JSON.stringify({ email, password, code }),
+    return axios.post('/api/auth/pwchange', {
+      email,
+      password,
+      code,
     });
   },
 
   logout: async () => {
     await forceLogout('User initiated logout');
+    
   },
 };
 
 // Machine API 함수들
 export const machineApi = {
-  getDevices: async (type?: 'washer' | 'dryer', floor?: string) => {
-    const params = new URLSearchParams();
-    if (type) {
-      params.append('type', type);
-    }
-    if (floor) {
-      params.append('floor', floor);
-    }
-
-    const queryString = params.toString();
-    const endpoint = `/machine/devices${queryString ? `?${queryString}` : ''}`;
+  getDevices: async () => {
+    const endpoint = `/api/machine/devices`;
 
     try {
-      const response = await apiRequest<DevicesResponse>(endpoint, {
-        method: 'GET',
-      });
+      const response = await axios.get<DevicesResponse>(endpoint);
 
       return response;
     } catch (error) {
@@ -817,27 +568,22 @@ export const machineApi = {
   },
 
   reportMachine: async (machineName: string, description: string) => {
-    return apiRequest<ReportResponse>('/machine/report', {
-      method: 'POST',
-      body: JSON.stringify({ machineName, description }),
+    return apiClient.post<ReportResponse>('/machine/report', {
+      machineName,
+      description,
     });
   },
 
   getReports: async () => {
-    return apiRequest<ReportsResponse>('/machine/admin/reports', {
-      method: 'GET',
-    });
+    return apiClient.get<ReportsResponse>('/machine/admin/reports');
   },
 
   updateReportStatus: async (
     reportId: number,
     status: 'pending' | 'in_progress' | 'resolved'
   ) => {
-    return apiRequest<ReportResponse>(
-      `/machine/admin/reports/${reportId}?status=${status}`,
-      {
-        method: 'PATCH',
-      }
+    return apiClient.patch<ReportResponse>(
+      `/machine/admin/reports/${reportId}?status=${status}`
     );
   },
 
@@ -857,22 +603,20 @@ export const machineApi = {
       queryString ? `?${queryString}` : ''
     }`;
 
-    return apiRequest<OutOfOrderResponse>(endpoint, {
-      method: 'GET',
-    });
+    return apiClient.get<OutOfOrderResponse>(endpoint);
   },
 
   updateOutOfOrderStatus: async (name: string, outOfOrder: boolean) => {
-    return apiRequest<ReportResponse>('/machine/admin/out-of-order', {
-      method: 'PATCH',
-      body: JSON.stringify({ name, outOfOrder }),
+    return apiClient.patch<ReportResponse>('/machine/admin/out-of-order', {
+      name,
+      outOfOrder,
     });
   },
 
   getHistory: async (machineId: number) => {
-    return apiRequest<MachineHistoryResponse>(`/reservation/machine/${machineId}/history`, {
-      method: 'GET',
-    });
+    return apiClient.get<MachineHistoryResponse>(
+      `/reservation/machine/${machineId}/history`
+    );
   },
 };
 
@@ -882,16 +626,14 @@ export const reservationApi = {
     const endpoint = `/reservation/${machineId}`;
 
     try {
-      const response = await apiRequest<ReservationResponse>(endpoint, {
-        method: 'POST',
-      });
+      const response = await apiClient.post(endpoint);
 
       return response;
     } catch (error) {
       console.error(`❌ createReservation API error:`, error);
       console.error(`❌ Error details:`, {
-        message: error?.message,
-        status: error?.status,
+        message: (error)?.message,
+        status: (error)?.status,
         endpoint,
         machineId,
       });
@@ -900,18 +642,11 @@ export const reservationApi = {
   },
 
   confirmReservation: async (reservationId: number) => {
-    return apiRequest<ReservationResponse>(
-      `/reservation/${reservationId}/confirm`,
-      {
-        method: 'POST',
-      }
-    );
+    return apiClient.post(`/reservation/${reservationId}/confirm`);
   },
 
   deleteReservation: async (reservationId: number) => {
-    return apiRequest<ReservationResponse>(`/reservation/${reservationId}`, {
-      method: 'DELETE',
-    });
+    return apiClient.delete(`/reservation/${reservationId}`);
   },
 
   getAdminReservations: async (type?: 'WASHER' | 'DRYER', floor?: string) => {
@@ -924,32 +659,23 @@ export const reservationApi = {
       queryString ? `?${queryString}` : ''
     }`;
 
-    return apiRequest<AdminReservationsResponse>(endpoint, {
-      method: 'GET',
-    });
+    return apiClient.get<AdminReservationsResponse>(endpoint);
   },
 
   forceDeleteReservation: async (reservationId: number) => {
-    return apiRequest<ReservationResponse>(
-      `/reservation/admin/${reservationId}`,
-      {
-        method: 'DELETE',
-      }
-    );
+    return apiClient.delete(`/reservation/admin/${reservationId}`);
   },
 };
 
 // User API 함수들
 export const userApi = {
   getMyInfo: async () => {
-    return apiRequest<UserInfoResponse>('/user/me', {
-      method: 'GET',
-    });
+    return axios.get<UserInfoResponse>('/api/user/me');
   },
 
   getUsers: async (
     name?: string,
-    gender?: 'male' | 'female',
+    gender?: 'MALE' | 'FEMALE',
     floor?: string
   ) => {
     const params = new URLSearchParams();
@@ -962,9 +688,7 @@ export const userApi = {
       queryString ? `?${queryString}` : ''
     }`;
 
-    return apiRequest<AdminUsersResponse>(endpoint, {
-      method: 'GET',
-    });
+    return apiClient.get<AdminUsersResponse>(endpoint);
   },
 
   restrictUser: async (
@@ -977,16 +701,14 @@ export const userApi = {
       pestrictionReason: restrictionData.restrictionReason, // 명세서의 오타에 맞춤
     };
 
-    return apiRequest<RestrictResponse>(`/user/admin/${userId}/restrict`, {
-      method: 'POST',
-      body: JSON.stringify(formattedData),
-    });
+    return apiClient.post<RestrictResponse>(
+      `/user/admin/${userId}/restrict`,
+      formattedData
+    );
   },
 
   unrestrictUser: async (userId: number) => {
-    return apiRequest<RestrictResponse>(`/user/admin/${userId}/unrestrict`, {
-      method: 'POST',
-    });
+    return apiClient.post<RestrictResponse>(`/user/admin/${userId}/unrestrict`);
   },
 };
 
@@ -994,7 +716,7 @@ export interface User {
   id: string;
   name: string;
   roomNumber: string;
-  gender: 'male' | 'female';
+  gender: 'MALE' | 'FEMALE';
   isAdmin: boolean;
   restrictedUntil: string | null;
   restrictionReason: string | null;

@@ -55,7 +55,7 @@ export function ReportMachineModal({
 
       setDescription('');
       setIsOpen(false);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: '신고 실패',
         description: error.message || '신고 접수 중 오류가 발생했습니다.',

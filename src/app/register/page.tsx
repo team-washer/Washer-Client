@@ -24,7 +24,7 @@ import {
   Lock,
   Clock,
 } from "lucide-react"
-import { useReservationStore, type GenderType } from "@/shared/lib/reservation-store"
+import { useReservationStore } from "@/shared/lib/reservation-store"
 import { useToast } from "@/shared/components/ui/use-toast"
 import { authApi } from "@/shared/lib/api-client"
 
@@ -35,7 +35,6 @@ type WelcomeStep = "greeting" | "service" | "warning" | "start" | "button"
 export default function RegisterPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { addUser, getUserByEmail } = useReservationStore()
 
   const [currentStep, setCurrentStep] = useState<Step>("welcome")
   const [welcomeStep, setWelcomeStep] = useState<WelcomeStep>("greeting")
@@ -48,7 +47,7 @@ export default function RegisterPage() {
     password: "",
     confirmPassword: "",
     roomNumber: "",
-    gender: "" as GenderType | "",
+    gender: "" 
   })
   const [isVerifying, setIsVerifying] = useState(false)
   const [isVerified, setIsVerified] = useState(false)
@@ -121,8 +120,8 @@ export default function RegisterPage() {
   }, [verificationTimer])
 
   // 성별에 따른 호실 옵션 생성
-  const getRoomOptions = (gender: GenderType | "") => {
-    if (gender === "male") {
+  const getRoomOptions = (gender: string | '') => {
+    if (gender === "MALE") {
       const rooms = []
       for (let i = 301; i <= 320; i++) {
         rooms.push(`${i}`)
@@ -131,7 +130,7 @@ export default function RegisterPage() {
         rooms.push(`${i}`)
       }
       return rooms
-    } else if (gender === "female") {
+    } else if (gender === "FEMALE") {
       const rooms = []
       for (let i = 501; i <= 518; i++) {
         rooms.push(`${i}`)
@@ -251,7 +250,7 @@ export default function RegisterPage() {
         description: `${fullEmail}로 인증코드를 발송했습니다.`,
       })
       nextStep()
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "인증코드 발송 실패",
         description: error.message || "인증코드 발송 중 오류가 발생했습니다.",
@@ -274,7 +273,7 @@ export default function RegisterPage() {
         description: "이메일 인증이 완료되었습니다.",
       })
       nextStep()
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "인증 실패",
         description: error.message || "인증코드가 올바르지 않습니다.",
@@ -310,7 +309,7 @@ export default function RegisterPage() {
         password: formData.password,
         name: formData.name,
         schoolNumber: formData.studentId,
-        gender: formData.gender as GenderType,
+        gender: formData.gender,
         room: formData.roomNumber,
       })
 
@@ -319,7 +318,7 @@ export default function RegisterPage() {
         description: "회원가입이 성공적으로 완료되었습니다.",
       })
       nextStep()
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "회원가입 실패",
         description: error.message || "회원가입 중 오류가 발생했습니다.",
@@ -574,8 +573,8 @@ export default function RegisterPage() {
                   <SelectValue placeholder="성별을 선택하세요" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="male">남성</SelectItem>
-                  <SelectItem value="female">여성</SelectItem>
+                  <SelectItem value="MALE">남성</SelectItem>
+                  <SelectItem value="FEMALE">여성</SelectItem>
                 </SelectContent>
               </Select>
             </div>

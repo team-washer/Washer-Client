@@ -28,7 +28,7 @@ export const base32Decode = (str: string): string => {
   let value = 0
   let output = ''
 
-  for (let i = 0; i < str.length; i++) {
+  for (let i = 0; i < str?.length; i++) {
     const char = str[i].toUpperCase()
     const index = alphabet.indexOf(char)
     if (index === -1) continue

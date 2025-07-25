@@ -13,8 +13,7 @@ export async function POST(request: NextRequest) {
     const body: RequestBody = await request.json();
 
     const response: AuthResponse = await apiClient.post('/auth/signin', body);
-    console.log(response.data.data);
-
+    
     if (response.data && response.data.success && response.data.data) {
       const {
         accessToken,
