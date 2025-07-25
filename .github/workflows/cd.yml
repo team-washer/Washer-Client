@@ -1,4 +1,4 @@
-name: Washer-Client CI
+name: Washer-Client CD
 
 on:
   push:
