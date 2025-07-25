@@ -7,7 +7,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const response = await apiClient.post('/auth/reissue', {
-      'Refresh-Token': `Bearer ${refreshToken}`,
+      headers: {
+        'Content-Type': 'application/json',
+        'Refresh-Token': `Bearer ${refreshToken}`,
+      },
     });
     if (response.data && response.data.success && response.data.data) {
       const {
