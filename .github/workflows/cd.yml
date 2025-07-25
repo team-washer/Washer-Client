@@ -7,46 +7,45 @@ on:
 jobs:
   build-and-deploy:
     runs-on: self-hosted
-
     strategy:
       matrix:
         node-version: [20.x]
 
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Setup pnpm
-      uses: pnpm/action-setup@v2
-      with:
-        version: latest
-
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'pnpm'
-
-    - name: Install dependencies
-      run: pnpm install --frozen-lockfile
-
-    - name: Lint
-      run: pnpm run lint
-      continue-on-error: true
-
-    - name: Type check
-      run: pnpm exec tsc --noEmit
-      continue-on-error: true
-
-    - name: Copy .env file
-      run: cp /root/.env .env
-
-    - name: Build app
-      run: pnpm run build
-
-    - name: Install PM2 globally (if not already installed)
-      run: pnpm add -g pm2
-
-    - name: Restart app with PM2
-      run: |
-        pm2 restart washer-client || pm2 start "pnpm start" --name washer-client
-        pm2 save
+      - uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+          
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+          
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Lint
+        run: pnpm run lint
+        continue-on-error: true
+        
+      - name: Type check
+        run: pnpm exec tsc --noEmit
+        continue-on-error: true
+        
+      - name: Copy .env file
+        run: cp /root/.env .env
+        
+      - name: Build app (Static Export)
+        run: pnpm run build
+          
+      - name: Deploy to nginx
+        run: |
+          sudo rm -rf /var/www/washer-client/*
+          sudo cp -r ./out/* /var/www/washer-client/
+          sudo chown -R www-data:www-data /var/www/washer-client
+          sudo nginx -t
+          sudo systemctl reload nginx
