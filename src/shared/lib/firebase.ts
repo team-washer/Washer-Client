@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, isSupported } from 'firebase/messaging';
 import firebaseConfig from './firebase-config';
-import UsePushMessage from '@/shared/hooks/use-push-message';
+import usePushMessage from '@/shared/hooks/use-push-message';
 
 const app = initializeApp(firebaseConfig);
 
@@ -34,7 +34,7 @@ export async function requestPermission() {
 
   try {
     const token = await getToken(messaging, { vapidKey });
-    UsePushMessage({ token });
+    usePushMessage({ token });
   } catch (err) {
     console.error('FCM 토큰 발급 오류:', err);
   }

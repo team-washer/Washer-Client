@@ -1,16 +1,15 @@
 import axios from 'axios';
-import React from 'react';
 
 interface Props {
   token: string;
 }
 
-async function UsePushMessage({ token }: Props) {
+async function usePushMessage({ token }: Props) {
   try {
-    axios.post('/api/push-message', { token, platform: 'web' });
+    await axios.post('/api/fcm-token', { token, platform: 'WEB' });
   } catch (err) {
     console.log(err);
   }
 }
 
-export default UsePushMessage;
+export default usePushMessage;
