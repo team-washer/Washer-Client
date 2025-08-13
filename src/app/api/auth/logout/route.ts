@@ -1,20 +1,23 @@
 import { apiClient } from '@/shared/lib/api-request';
-import axios from 'axios';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   const refreshToken = request.cookies.get('refreshToken')?.value;
 
   try {
-    await apiClient.post('/auth/logout', {
-      headers: {
-        'Content-Type': 'application/json',
-        'Refresh-Token': `Bearer ${refreshToken}`,
-      },
-    });
-    await axios.post('/api/auth/logout/delete-cookie', {});
-    
+    const response = await apiClient.post(
+      '/auth/logout',
+      {},
+      {
+        headers: {
+          'Refresh-Token': `Bearer ${refreshToken}`,
+        },
+      }
+    );
+
+    return NextResponse.json(response.data);
   } catch (error) {
     console.error('Logout failed:', error);
+    return NextResponse.json(error);
   }
 }
