@@ -40,16 +40,14 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
 
       const response = await reservationApi.confirmReservation(reservationIdToConfirm)
 
-      if (response.success) {
-        toast({
-          title: "예약 확인 완료",
-          description: `${reservation.type === "washing" ? "세탁" : "건조"}을 시작합니다.`,
-        })
+      toast({
+        title: "예약 확인 완료",
+        description: `${reservation.type === "washing" ? "세탁" : "건조"}을 시작합니다.`,
+      })
 
-        // 데이터 새로고침
-        await fetchMyInfo()
-        await fetchMachines()
-      }
+      // 데이터 새로고침
+      await fetchMyInfo()
+      await fetchMachines()
     } catch (error) {
       console.error("❌ Confirm reservation error:", error)
 
@@ -125,35 +123,35 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
   // 상태별 색상 및 텍스트
   const getStatusInfo = () => {
     switch (reservation.status) {
-      case "reserved":
+      case "RESERVED":
         return {
           color: "bg-yellow-500",
           text: "예약됨",
           description: "5분 이내에 확인 버튼을 눌러주세요",
           icon: Clock,
         }
-      case "confirmed":
+      case "CONFIRMED":
         return {
           color: "bg-blue-500",
           text: "확인됨",
           description: "기기에서 시작 버튼을 눌러주세요",
           icon: CheckCircle,
         }
-      case "running":
+      case "RUNNING":
         return {
           color: "bg-green-500",
           text: "사용 중",
           description: "현재 사용 중입니다",
           icon: Zap,
         }
-      case "collection":
+      case "COLLECTION":
         return {
           color: "bg-purple-500",
           text: "수거 대기",
           description: "세탁물을 수거해주세요",
           icon: AlertTriangle,
         }
-      case "connecting":
+      case "CONNECTING":
         return {
           color: "bg-orange-500",
           text: "연결 중",
@@ -243,7 +241,7 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
 
         {/* 버튼 영역 */}
         <div className="flex flex-col gap-2">
-          {reservation.status === "reserved" && (
+          {reservation.status === "RESERVED" && (
             <Button
               onClick={handleConfirmReservation}
               disabled={isLoading}
@@ -253,18 +251,18 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
             </Button>
           )}
 
-          {(reservation.status === "reserved" ||
-            reservation.status === "confirmed" ||
-            reservation.status === "connecting") && (
-            <Button
-              variant="outline"
-              onClick={handleCancelReservation}
-              disabled={isLoading}
-              className="w-full border-red-500 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-500 dark:hover:bg-red-900/20"
-            >
-              {isLoading ? "취소 중..." : "예약 취소"}
-            </Button>
-          )}
+          {(reservation.status === "RESERVED" ||
+            reservation.status === "CONFIRMED" ||
+            reservation.status === "CONNECTING") && (
+              <Button
+                variant="outline"
+                onClick={handleCancelReservation}
+                disabled={isLoading}
+                className="w-full border-red-500 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-500 dark:hover:bg-red-900/20"
+              >
+                {isLoading ? "취소 중..." : "예약 취소"}
+              </Button>
+            )}
         </div>
 
         {/* 메시지 */}

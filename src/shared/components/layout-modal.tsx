@@ -37,25 +37,25 @@ export function LayoutModal({ floor }: LayoutModalProps) {
     // 서버에서 받은 예약 정보 확인
     if (machine.reservations && machine.reservations.length > 0) {
       const activeReservation = machine.reservations.find(
-        (r) => r.status === "waiting" || r.status === "reserved" || r.status === "confirmed" || r.status === "running",
+        (r) => r.status === "WAITING" || r.status === "RESERVED" || r.status === "CONFIRMED" || r.status === "RUNNING",
       )
 
       if (activeReservation) {
         switch (activeReservation.status) {
-          case "waiting":
-          case "reserved":
-            return { status: "reserved", color: "bg-yellow-500", text: "예약됨" }
-          case "confirmed":
-            return { status: "confirmed", color: "bg-orange-500", text: "확정됨" }
-          case "running":
-            return { status: "running", color: "bg-blue-500", text: "사용중" }
+          case "WAITING":
+          case "RESERVED":
+            return { status: "RESERVED", color: "bg-yellow-500", text: "예약됨" }
+          case "CONFIRMED":
+            return { status: "CONFIRMED", color: "bg-orange-500", text: "확정됨" }
+          case "RUNNING":
+            return { status: "RUNNING", color: "bg-blue-500", text: "사용중" }
         }
       }
     }
 
     // 기본 상태 확인
-    if (machine.status === "in-use") return { status: "in-use", color: "bg-blue-500", text: "사용중" }
-    return { status: "available", color: "bg-green-500", text: "사용가능" }
+    if (machine.status === "IN-USE") return { status: "IN-USE", color: "bg-blue-500", text: "사용중" }
+    return { status: "AVAILABLE", color: "bg-green-500", text: "사용가능" }
   }
 
   // 위치별로 기기 정렬 - 입구에서 가까운 순서로

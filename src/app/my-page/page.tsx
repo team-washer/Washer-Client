@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, use } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/shared/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card"
@@ -58,10 +58,10 @@ export default function MyPage() {
           setRemainingTime(parsedTime)
         } else {
           // 서버에서 시간 정보가 없을 때만 클라이언트에서 추정
-          if (userInfo?.status === "waiting") {
+          if (userInfo?.status === "WAITING") {
             // 대기 중: 5분 (300초)
             setRemainingTime(300)
-          } else if (userInfo?.status === "confirmed") {
+          } else if (userInfo?.status === "CONFIRMED") {
             // 확정됨: 2분 (120초) - 서버 연결 대기 시간
             setRemainingTime(120)
           } else {
@@ -82,15 +82,8 @@ export default function MyPage() {
   }
 
   useEffect(() => {
-    // 로그인 상태 확인
-    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true"
-    if (!isLoggedIn) {
-      router.push("/login")
-      return
-    }
-
     loadUserInfo()
-  }, [router])
+  }, [])
 
   // 실시간 타이머 - 1초마다 남은 시간 감소
   useEffect(() => {
@@ -126,9 +119,9 @@ export default function MyPage() {
 
     try {
       const response = await machineApi.getDevices()
-
+      console.log("Machine status response:", response);
       if (response.status === 200 && response.data) {
-        const { washer, dryer } = response.data.data
+        const { washer, dryer } = response.data
         const allMachines = [...washer, ...dryer]
 
         // 현재 예약된 기기 찾기
@@ -142,7 +135,7 @@ export default function MyPage() {
           setCurrentMachineState(jobStateInfo.text)
 
           // machineState가 run이면 실제 세탁/건조 시작됨
-          if (currentMachine.machineState === "run") {
+          if (currentMachine.machineState === "RUN") {
             // 기기 상태 체크 중단
             if (machineCheckInterval) {
               clearInterval(machineCheckInterval)
@@ -176,13 +169,13 @@ export default function MyPage() {
 
   // confirmed 상태일 때 기기 상태 체크 시작
   useEffect(() => {
-    if (userInfo?.status === "confirmed" && !machineCheckInterval) {
+    if (userInfo?.status === "CONFIRMED" && !machineCheckInterval) {
       const interval = setInterval(checkMachineStatus, 20000) // 20초마다
       setMachineCheckInterval(interval)
 
       // 즉시 한 번 체크
       checkMachineStatus()
-    } else if (userInfo?.status !== "confirmed" && machineCheckInterval) {
+    } else if (userInfo?.status !== "CONFIRMED" && machineCheckInterval) {
       clearInterval(machineCheckInterval)
       setMachineCheckInterval(null)
     }
@@ -279,12 +272,12 @@ export default function MyPage() {
       if (response.status === 200) {
         const machineType = userInfo?.machineLabel?.toLowerCase().includes("dryer") ? "건조" : "세탁"
 
-        if (userInfo?.status === "waiting") {
+        if (userInfo?.status === "WAITING") {
           toast({
             title: "예약 확정 완료",
             description: `예약이 확정되었습니다. ${machineType} 시작 버튼을 눌러주세요.`,
           })
-        } else if (userInfo.status === "reserved") {
+        } else if (userInfo.status === "RESERVED") {
           toast({
             title: `${machineType} 시작`,
             description: `${machineType}기에 연결 중입니다. 잠시만 기다려주세요.`,
@@ -311,7 +304,7 @@ export default function MyPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "waiting":
+      case "WAITING":
         return (
           <Badge
             variant="secondary"
@@ -321,28 +314,28 @@ export default function MyPage() {
             대기 중
           </Badge>
         )
-      case "reserved":
+      case "RESERVED":
         return (
           <Badge variant="default" className="bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
             <CheckCircle className="h-3 w-3 mr-1" />
             예약됨
           </Badge>
         )
-      case "confirmed":
+      case "CONFIRMED":
         return (
           <Badge variant="default" className="bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400">
             <Loader2 className="h-3 w-3 mr-1 animate-spin" />
             연결 중
           </Badge>
         )
-      case "running":
+      case "RUNNING":
         return (
           <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
             <Play className="h-3 w-3 mr-1" />
             사용 중
           </Badge>
         )
-      case "completed":
+      case "COMPLETED":
         return (
           <Badge variant="default" className="bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400">
             <CheckCircle className="h-3 w-3 mr-1" />
@@ -356,15 +349,15 @@ export default function MyPage() {
 
   const getStatusDescription = (status: string) => {
     switch (status) {
-      case "waiting":
+      case "WAITING":
         return "예약이 대기 중입니다. 5분 이내에 확정해주세요."
-      case "reserved":
+      case "RESERVED":
         return "예약이 확정되었습니다. 세탁/건조를 시작해주세요."
-      case "confirmed":
+      case "CONFIRMED":
         return "기기에 연결 중입니다. 잠시만 기다려주세요."
-      case "running":
+      case "RUNNING":
         return "현재 세탁/건조가 진행 중입니다."
-      case "completed":
+      case "COMPLETED":
         return "세탁/건조가 완료되었습니다."
       default:
         return ""
@@ -499,7 +492,7 @@ export default function MyPage() {
                     <User className="h-4 w-4 text-gray-500" />
                     <span className="text-sm text-gray-500">성별</span>
                   </div>
-                  <p className="font-medium">{userInfo.gender === "male" ? "남성" : "여성"}</p>
+                  <p className="font-medium">{userInfo.gender === "MALE" ? "남성" : "여성"}</p>
                 </div>
               </div>
 
@@ -552,7 +545,7 @@ export default function MyPage() {
                   )}
 
                   {/* 기기 상태 체크 중 표시 */}
-                  {userInfo.status === "confirmed" && (
+                  {userInfo.status === "CONFIRMED" && (
                     <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg dark:bg-orange-900/20 dark:border-orange-800">
                       <div className="flex items-center gap-2 mb-2">
                         <Loader2 className="h-4 w-4 text-orange-600 animate-spin" />
@@ -571,18 +564,18 @@ export default function MyPage() {
                   {remainingTime > 0 && (
                     <div
                       className={`p-4 rounded-lg border ${
-                        userInfo.status === "running"
+                        userInfo.status === "RUNNING"
                           ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
                           : "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <Clock
-                          className={`h-5 w-5 ${userInfo.status === "running" ? "text-green-600" : "text-blue-600"}`}
+                          className={`h-5 w-5 ${userInfo.status === "RUNNING" ? "text-green-600" : "text-blue-600"}`}
                         />
                         <span
                           className={`font-medium ${
-                            userInfo.status === "running"
+                            userInfo.status === "RUNNING"
                               ? "text-green-800 dark:text-green-400"
                               : "text-blue-800 dark:text-blue-400"
                           }`}
@@ -592,7 +585,7 @@ export default function MyPage() {
                       </div>
                       <p
                         className={`text-2xl font-bold ${
-                          userInfo.status === "running"
+                          userInfo.status === "RUNNING"
                             ? "text-green-600 dark:text-green-400"
                             : "text-blue-600 dark:text-blue-400"
                         }`}
@@ -606,7 +599,7 @@ export default function MyPage() {
 
                   <div className="flex gap-2">
                     {/* 대기 중일 때: 예약 확정 버튼 */}
-                    {userInfo.status === "waiting" && (
+                    {userInfo.status === "WAITING" && (
                       <Button
                         onClick={handleConfirmReservation}
                         disabled={actionLoading}
@@ -618,7 +611,7 @@ export default function MyPage() {
                     )}
 
                     {/* 예약됨 상태일 때: 세탁/건조 시작 버튼 */}
-                    {userInfo.status === "reserved" && (
+                    {userInfo.status === "RESERVED" && (
                       <Button
                         onClick={handleConfirmReservation}
                         disabled={actionLoading}
@@ -633,8 +626,7 @@ export default function MyPage() {
                       </Button>
                     )}
 
-                    {/* 취소 버튼 - waiting, reserved, confirmed 상태에서만 표시 */}
-                    {["waiting", "reserved", "confirmed"].includes(userInfo.status || "") && (
+                    {["WAITING", "RESERVED", "CONFIRMED"].includes(userInfo.status || "") && (
                       <Button
                         variant="destructive"
                         onClick={handleCancelReservation}

@@ -131,8 +131,8 @@ export default function HomePage() {
 
   // 통계 계산
   const totalMachines = machines.length
-  const availableMachines = machines.filter((m) => !m.isOutOfOrder && m.status === "available").length
-  const inUseMachines = machines.filter((m) => m.status === "in-use" || m.status === "reserved").length
+  const availableMachines = machines.filter((m) => !m.isOutOfOrder && m.status === "AVAILABLE").length
+  const inUseMachines = machines.filter((m) => m.status === "IN-USE" || m.status === "RESERVED").length
 
   if (isLoading) {
     return (
