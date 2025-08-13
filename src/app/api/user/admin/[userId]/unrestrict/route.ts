@@ -12,9 +12,13 @@ export async function POST(
     : undefined;
 
   try {
-    const response = await apiClient.post(`/user/admin/${userId}/unrestrict`, {
-      headers,
-    });
+    const response = await apiClient.post(
+      `/user/admin/${userId}/unrestrict`,
+      {},
+      {
+        headers,
+      }
+    );
 
     if (response.data && response.data.success) {
       return new Response(response.data.message, { status: 200 });
