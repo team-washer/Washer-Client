@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   const accessToken = request.cookies.get('accessToken')?.value;
+  const headers = accessToken
+    ? { Authorization: `Bearer ${accessToken}` }
+    : undefined;
   try {
     const { token, platform } = await request.json();
 
@@ -13,16 +16,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await apiClient.post(`/fcm-token`, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      data: {
+    await apiClient.post(
+      `/fcm-token`,
+      {
         token,
         platform,
       },
-    });
+      { headers }
+    );
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
