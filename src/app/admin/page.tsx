@@ -505,7 +505,7 @@ export default function AdminPage() {
       user.roomName.toLowerCase().includes(searchTerm.toLowerCase());
 
     // 성별 필터링 수정 - MALE/FEMALE을 MALE/female로 변환
-    const userGender = user.gender.toLowerCase() as 'MALE' | 'FEMALE';
+    const userGender = user.gender as 'MALE' | 'FEMALE';
     const matchesGender =
       userGenderFilter === 'ALL' || userGender === userGenderFilter;
     const roomFloor = user.roomName.charAt(0);
