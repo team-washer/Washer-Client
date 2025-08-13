@@ -14,6 +14,7 @@ import { reservationApi } from "@/shared/lib/api-client"
 import { formatTime } from "@/shared/lib/utils"
 // import 문에 MachineHistoryModal 추가
 import { MachineHistoryModal } from "@/shared/components/machine-history-modal"
+import { AxiosError } from "axios"
 
 export function DryerList() {
   const { toast } = useToast()
@@ -129,8 +130,8 @@ export function DryerList() {
       // 데이터 새로고침
       await fetchMyInfo()
       await fetchMachines()
-    } catch (error) {
-      console.error("❌ Reservation error:", error)
+    } catch (error: any) {
+      console.error("❌ Reservation error:", error.status)
 
       let errorMessage = "예약 중 오류가 발생했습니다."
 
@@ -144,6 +145,8 @@ export function DryerList() {
         } else {
           errorMessage = error.message
         }
+      } else if (error?.response?.status === 403) {
+        errorMessage = "정지된 사용자입니다."
       } else if (error?.status === 409) {
         errorMessage = "이미 다른 예약이 있습니다."
       } else if (error?.message) {
