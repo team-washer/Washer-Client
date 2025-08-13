@@ -163,9 +163,7 @@ export function WashingMachineList() {
       await fetchMachines()
 
       router.push('my-page')
-    } catch (error) {
-      console.error("❌ Reservation error:", error)
-
+    } catch (error: any) {
       let errorMessage = "예약 중 오류가 발생했습니다."
 
       if (error?.status === 400) {
@@ -178,6 +176,8 @@ export function WashingMachineList() {
         } else {
           errorMessage = error.message
         }
+      } else if (error?.status === 403) {
+        errorMessage = "정지된 사용자입니다."
       } else if (error?.status === 409) {
         errorMessage = "이미 다른 예약이 있습니다."
       } else if (error?.message) {
