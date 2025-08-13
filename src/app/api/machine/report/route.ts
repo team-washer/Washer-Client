@@ -10,7 +10,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const response = await apiClient.post('/machine/report', body, { headers });
-    return NextResponse.json(response.data.data);
+    console.log('리포트 응답:', response.data);
+
+    return NextResponse.json(response.data);
   } catch (error) {
     return NextResponse.json(
       { error: '서버에서 리포트 정보를 받아오지 못 했습니다.' },

@@ -57,9 +57,7 @@ export function DryerList() {
     setRefreshCooldown(5) // 5초 쿨다운
     try {
       await fetchMachines()
-      if (userId) {
-        await fetchMyInfo(userId)
-      }
+      await fetchMyInfo()
       toast({
         title: "새로고침 완료",
         description: "건조기 정보가 업데이트되었습니다.",
@@ -123,16 +121,14 @@ export function DryerList() {
     try {
       const response = await reservationApi.createReservation(machineServerId)
 
-      if (response.success) {
-        toast({
-          title: "예약 성공",
-          description: "건조기가 예약되었습니다. 5분 이내에 확정해주세요.",
-        })
+      toast({
+        title: "예약 성공",
+        description: "건조기가 예약되었습니다. 5분 이내에 확정해주세요.",
+      })
 
-        // 데이터 새로고침
-        await fetchMyInfo()
-        await fetchMachines()
-      }
+      // 데이터 새로고침
+      await fetchMyInfo()
+      await fetchMachines()
     } catch (error) {
       console.error("❌ Reservation error:", error)
 
@@ -170,30 +166,30 @@ export function DryerList() {
     const machine = machines.find((m) => m.id === machineId)
 
     if (!machine) return { status: "unknown", color: "bg-gray-500", text: "알 수 없음" }
-    if (machine.isOutOfOrder) return { status: "broken", color: "bg-red-500", text: "고장" }
+    if (machine.isOutOfOrder) return { status: "BROKEN", color: "bg-red-500", text: "고장" }
 
     // 서버에서 받은 예약 정보 확인
     if (machine.reservations && machine.reservations.length > 0) {
       const activeReservation = machine.reservations.find(
-        (r) => r.status === "waiting" || r.status === "reserved" || r.status === "confirmed" || r.status === "running",
+        (r) => r.status === "WAITING" || r.status === "RESERVED" || r.status === "CONFIRMED" || r.status === "RUNNING",
       )
 
       if (activeReservation) {
         switch (activeReservation.status) {
-          case "waiting":
-          case "reserved":
-            return { status: "reserved", color: "bg-yellow-500", text: "예약됨" }
-          case "confirmed":
-            return { status: "confirmed", color: "bg-orange-500", text: "확정됨" }
-          case "running":
-            return { status: "running", color: "bg-blue-500", text: "사용중" }
+          case "WAITING":
+          case "RESERVED":
+            return { status: "RESERVED", color: "bg-yellow-500", text: "예약됨" }
+          case "CONFIRMED":
+            return { status: "CONFIRMED", color: "bg-orange-500", text: "확정됨" }
+          case "RUNNING":
+            return { status: "RUNNING", color: "bg-blue-500", text: "사용중" }
         }
       }
     }
 
     // 기본 상태 확인
-    if (machine.status === "in-use") return { status: "in-use", color: "bg-blue-500", text: "사용중" }
-    return { status: "available", color: "bg-green-500", text: "사용가능" }
+    if (machine.status === "IN-USE") return { status: "IN-USE", color: "bg-blue-500", text: "사용중" }
+    return { status: "AVAILABLE", color: "bg-green-500", text: "사용가능" }
   }
 
   // 기기의 예약 호실 정보 가져오기
@@ -209,7 +205,7 @@ export function DryerList() {
     }
 
     const activeReservation = machine.reservations.find(
-      (r) => r.status === "waiting" || r.status === "reserved" || r.status === "confirmed" || r.status === "running",
+      (r) => r.status === "WAITING" || r.status === "RESERVED" || r.status === "CONFIRMED" || r.status === "RUNNING",
     )
 
     return activeReservation && activeReservation.room === userRoomNumber
@@ -239,187 +235,191 @@ export function DryerList() {
     <div className="space-y-6">
       {Object.entries(machinesByFloor)
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([floor, floorMachines]) => (
-          <div key={floor} className="space-y-4">
-            {/* 층 헤더 */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-semibold text-[#6487DB] dark:text-white">{floor} 건조기</h3>
-                <Badge variant="outline" className="text-xs">
-                  {floorMachines.length}대
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={handleRefresh}
-                  disabled={refreshCooldown > 0}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2"
-                >
-                  <RefreshCw className={`h-4 w-4 ${refreshCooldown > 0 ? "animate-spin" : ""}`} />
-                  <span className="hidden sm:inline">{refreshCooldown > 0 ? `${refreshCooldown}초` : "새로고침"}</span>
-                </Button>
-                <LayoutModal floor={floor as FloorType} />
-              </div>
-            </div>
+        .map(([floorString, floorMachines]) => {
+          const floor = Number(floorString) as FloorType;
 
-            {/* 기기 목록 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {floorMachines
-                .sort((a, b) => a.location.localeCompare(b.location))
-                .map((machine) => {
-                  const status = getMachineStatus(machine.id)
-                  const operatingStateInfo = getMachineOperatingStateInfo(machine.id)
-                  const reservationInfo = getMachineReservationInfo(machine.id)
-                  const reservationRoom = getMachineReservationRoom(machine.id)
-                  const isReserving = reservingMachineId === machine.id
-                  const isMyMachine = isUserMachine(machine.id)
+          return (
+            <div key={floor} className="space-y-4">
+              {/* 층 헤더 */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-[#6487DB] dark:text-white">{floor}층 건조기</h3>
+                  <Badge variant="outline" className="text-xs">
+                    {floorMachines.length}대
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={handleRefresh}
+                    disabled={refreshCooldown > 0}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${refreshCooldown > 0 ? "animate-spin" : ""}`} />
+                    <span className="hidden sm:inline">{refreshCooldown > 0 ? `${refreshCooldown}초` : "새로고침"}</span>
+                  </Button>
+                  <LayoutModal floor={floor} />
+                </div>
+              </div>
 
-                  return (
-                    <Card
-                      key={machine.id}
-                      className={`transition-all duration-200 hover:shadow-md ${status.status === "available"
+              {/* 기기 목록 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {floorMachines
+                  .sort((a, b) => a.location.localeCompare(b.location))
+                  .map((machine) => {
+                    const status = getMachineStatus(machine.id)
+                    const operatingStateInfo = getMachineOperatingStateInfo(machine.id)
+                    const reservationInfo = getMachineReservationInfo(machine.id)
+                    const reservationRoom = getMachineReservationRoom(machine.id)
+                    const isReserving = reservingMachineId === machine.id
+                    const isMyMachine = isUserMachine(machine.id)
+
+                    return (
+                      <Card
+                        key={machine.id}
+                        className={`transition-all duration-200 hover:shadow-md ${status.status === "AVAILABLE"
                           ? "border-green-200 hover:border-green-300 dark:border-green-800"
-                          : status.status === "broken"
+                          : status.status === "BROKEN"
                             ? "border-red-200 dark:border-red-800"
                             : "border-gray-200 dark:border-gray-700"
-                        }`}
-                    >
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <Wind className="h-4 w-4 text-[#86A9FF]" />
-                            {machine.id}
-                          </CardTitle>
-                          <Badge className={`${status.color} text-white border-0 text-xs`}>{status.text}</Badge>
-                        </div>
-                        <CardDescription className="text-xs flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {machine.location} 위치
-                        </CardDescription>
-                      </CardHeader>
+                          }`}
+                      >
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-base flex items-center gap-2">
+                              <Wind className="h-4 w-4 text-[#86A9FF]" />
+                              {machine.id}
+                            </CardTitle>
+                            <Badge className={`${status.color} text-white border-0 text-xs`}>{status.text}</Badge>
+                          </div>
+                          <CardDescription className="text-xs flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {machine.location} 위치
+                          </CardDescription>
+                        </CardHeader>
 
-                      <CardContent className="pt-0 space-y-3">
-                        {/* 기기 작동 상태 */}
-                        <div className={`p-2 rounded-md border text-xs ${operatingStateInfo.color}`}>
-                          <div className="flex items-center gap-2">
-                            <span>{operatingStateInfo.icon}</span>
-                            <div className="flex-1">
-                              <div className="font-medium">{operatingStateInfo.text}</div>
-                              <div className="text-xs opacity-75 mt-1">{operatingStateInfo.description}</div>
+                        <CardContent className="pt-0 space-y-3">
+                          {/* 기기 작동 상태 */}
+                          <div className={`p-2 rounded-md border text-xs ${operatingStateInfo.color}`}>
+                            <div className="flex items-center gap-2">
+                              <span>{operatingStateInfo.icon}</span>
+                              <div className="flex-1">
+                                <div className="font-medium">{operatingStateInfo.text}</div>
+                                <div className="text-xs opacity-75 mt-1">{operatingStateInfo.description}</div>
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        {/* 예약 호실 정보 */}
-                        {reservationRoom && (
-                          <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-md">
-                            <Home className="h-4 w-4" />
-                            <span className="font-medium">
-                              {reservationRoom}호 {isMyMachine ? "(내 예약)" : "예약"}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* 남은 시간 표시 - 예약이 있을 때만 표시 */}
-                        {reservationInfo.hasReservation &&
-                          reservationInfo.remainingTime &&
-                          reservationInfo.remainingTime > 0 && (
-                            <div
-                              className={`flex items-center gap-2 text-sm ${reservationInfo.reservationStatus === "running"
-                                  ? "text-yellow-600 dark:text-yellow-400"
-                                  : "text-orange-600 dark:text-orange-400"
-                                }`}
-                            >
-                              <Clock className="h-4 w-4" />
-                              <span>
-                                {reservationInfo.reservationStatus === "running"
-                                  ? machine.id.toLowerCase().includes("dryer")
-                                    ? "건조 완료까지"
-                                    : "세탁 완료까지"
-                                  : reservationInfo.timeLabel}
-                                : {formatTime(reservationInfo.remainingTime)}
+                          {/* 예약 호실 정보 */}
+                          {reservationRoom && (
+                            <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-md">
+                              <Home className="h-4 w-4" />
+                              <span className="font-medium">
+                                {reservationRoom}호 {isMyMachine ? "(내 예약)" : "예약"}
                               </span>
                             </div>
                           )}
 
-                        <Separator />
-
-                        {/* 버튼 영역 */}
-                        <div className="flex gap-2">
-                          {status.status === "available" && !machine.isOutOfOrder && (
-                            <Button
-                              onClick={() => handleReserveMachine(machine.serverId, machine.id)}
-                              disabled={
-                                isLoading ||
-                                hasActiveReservation(userId) ||
-                                hasActiveReservationByRoom(userRoomNumber) ||
-                                isCurrentUserRestricted()
-                              }
-                              className="flex-1 bg-[#86A9FF] hover:bg-[#6487DB] text-white text-sm py-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {isReserving ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  예약 중...
-                                </>
-                              ) : (
-                                <>
-                                  <CheckCircle className="h-4 w-4 mr-2" />
-                                  {isCurrentUserRestricted() ? "정지됨" : "예약하기"}
-                                </>
-                              )}
-                            </Button>
-                          )}
-
-                          {status.status === "broken" && (
-                            <div className="flex-1 text-center py-2">
-                              <p className="text-sm text-red-600 dark:text-red-400">고장으로 사용 불가</p>
-                            </div>
-                          )}
-
-                          {(status.status === "reserved" ||
-                            status.status === "confirmed" ||
-                            status.status === "running" ||
-                            status.status === "collection") && (
-                              <Button
-                                variant="outline"
-                                disabled
-                                className="flex-1 text-sm py-2 cursor-not-allowed bg-transparent"
+                          {/* 남은 시간 표시 - 예약이 있을 때만 표시 */}
+                          {reservationInfo.hasReservation &&
+                            reservationInfo.remainingTime &&
+                            reservationInfo.remainingTime > 0 && (
+                              <div
+                                className={`flex items-center gap-2 text-sm ${reservationInfo.reservationStatus === "RUNNING"
+                                  ? "text-yellow-600 dark:text-yellow-400"
+                                  : "text-orange-600 dark:text-orange-400"
+                                  }`}
                               >
-                                {isMyMachine ? "내 예약" : "사용 중"}
+                                <Clock className="h-4 w-4" />
+                                <span>
+                                  {reservationInfo.reservationStatus === "RUNNING"
+                                    ? machine.id.toLowerCase().includes("dryer")
+                                      ? "건조 완료까지"
+                                      : "세탁 완료까지"
+                                    : reservationInfo.timeLabel}
+                                  : {formatTime(reservationInfo.remainingTime)}
+                                </span>
+                              </div>
+                            )}
+
+                          <Separator />
+
+                          {/* 버튼 영역 */}
+                          <div className="flex gap-2">
+                            {status.status === "AVAILABLE" && !machine.isOutOfOrder && (
+                              <Button
+                                onClick={() => handleReserveMachine(machine.serverId, machine.id)}
+                                disabled={
+                                  isLoading ||
+                                  hasActiveReservation(userId) ||
+                                  hasActiveReservationByRoom(userRoomNumber) ||
+                                  isCurrentUserRestricted()
+                                }
+                                className="flex-1 bg-[#86A9FF] hover:bg-[#6487DB] text-white text-sm py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {isReserving ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    예약 중...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    {isCurrentUserRestricted() ? "정지됨" : "예약하기"}
+                                  </>
+                                )}
                               </Button>
                             )}
 
-                          {/* 고장 신고 버튼 */}
-                          <ReportMachineModal machineName={machine.id} machineType="dryer" />
+                            {status.status === "BROKEN" && (
+                              <div className="flex-1 text-center py-2">
+                                <p className="text-sm text-red-600 dark:text-red-400">고장으로 사용 불가</p>
+                              </div>
+                            )}
 
-                          {/* 히스토리 버튼 */}
-                          <MachineHistoryModal machineId={machine.serverId} machineName={machine.id} />
-                        </div>
+                            {(status.status === "RESERVED" ||
+                              status.status === "CONFIRMED" ||
+                              status.status === "RUNNING" ||
+                              status.status === "COLLECTION") && (
+                                <Button
+                                  variant="outline"
+                                  disabled
+                                  className="flex-1 text-sm py-2 cursor-not-allowed bg-transparent"
+                                >
+                                  {isMyMachine ? "내 예약" : "사용 중"}
+                                </Button>
+                              )}
 
-                        {/* 예약 불가 메시지 */}
-                        {(hasActiveReservation(userId) ||
-                          hasActiveReservationByRoom(userRoomNumber) ||
-                          isCurrentUserRestricted()) &&
-                          status.status === "available" && (
-                            <div className="text-xs text-orange-600 dark:text-orange-400 text-center">
-                              <AlertTriangle className="h-3 w-3 inline mr-1" />
-                              {isCurrentUserRestricted()
-                                ? "계정이 정지되어 예약할 수 없습니다"
-                                : hasActiveReservation(userId)
-                                  ? "이미 활성화된 예약이 있습니다"
-                                  : "이미 호실에 활성화된 예약이 있습니다"}
-                            </div>
-                          )}
-                      </CardContent>
-                    </Card>
-                  )
-                })}
+                            {/* 고장 신고 버튼 */}
+                            <ReportMachineModal machineName={machine.id} machineType="dryer" />
+
+                            {/* 히스토리 버튼 */}
+                            <MachineHistoryModal machineId={machine.serverId} machineName={machine.id} />
+                          </div>
+
+                          {/* 예약 불가 메시지 */}
+                          {(hasActiveReservation(userId) ||
+                            hasActiveReservationByRoom(userRoomNumber) ||
+                            isCurrentUserRestricted()) &&
+                            status.status === "AVAILABLE" && (
+                              <div className="text-xs text-orange-600 dark:text-orange-400 text-center">
+                                <AlertTriangle className="h-3 w-3 inline mr-1" />
+                                {isCurrentUserRestricted()
+                                  ? "계정이 정지되어 예약할 수 없습니다"
+                                  : hasActiveReservation(userId)
+                                    ? "이미 활성화된 예약이 있습니다"
+                                    : "이미 호실에 활성화된 예약이 있습니다"}
+                              </div>
+                            )}
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
     </div>
   )
 }
