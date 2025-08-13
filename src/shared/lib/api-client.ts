@@ -490,6 +490,7 @@ const safeTokenLog = (
 const forceLogout = async (reason = 'Authentication failed') => {
   if (typeof window !== 'undefined') {
     await axios.post('/api/auth/logout', {});
+    await axios.post('/api/auth/logout/delete-cookie', {});
   }
 };
 
@@ -621,7 +622,7 @@ export const reservationApi = {
       const response = await axios.post(endpoint);
 
       return response;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`❌ createReservation API error:`, error);
       console.error(`❌ Error details:`, {
         message: error?.message,
