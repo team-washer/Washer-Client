@@ -1,8 +1,5 @@
 import axios, { AxiosHeaders } from 'axios';
 import { UserRole } from './auth-utils';
-import { apiClient } from './api-request';
-
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 // API 응답 타입 정의 - 로그인 응답 구조 업데이트
 export interface AuthResponse {
@@ -63,20 +60,20 @@ export type DryerJobState =
   | 'thawingFrozenInside';
 
 // 기기 상태 타입 정의
-export type MachineState = 'pause' | 'run' | 'stop';
+export type MachineState = 'PAUSE' | 'RUN' | 'STOP';
 
 // Machine API 타입 정의 - 예약 ID 필드 추가
 export interface MachineReservation {
   startTime: string;
   room: string;
-  status: 'waiting' | 'reserved' | 'confirmed' | 'running';
+  status: 'WAITING' | 'RESERVED' | 'CONFIRMED' | 'RUNNING';
 }
 
 export interface MachineDevice {
   id: number;
   label: string;
   floor: string;
-  powerState: 'on' | 'off';
+  powerState: 'ON' | 'OFF';
   machineState: MachineState;
   jobState: WasherJobState | DryerJobState; // washerJobState, dryerJobState 대신 jobState 사용
   remainingTime: string; // "00:00:00" 형식
@@ -85,13 +82,8 @@ export interface MachineDevice {
 }
 
 export interface DevicesResponse {
-  success: boolean;
-  data: {
-    washer: MachineDevice[];
-    dryer: MachineDevice[];
-  };
-  message: string;
-  timestamp: string;
+  washer: MachineDevice[];
+  dryer: MachineDevice[];
 }
 
 export interface ReportResponse {
@@ -106,7 +98,7 @@ export interface Report {
   reportedByUserName: string;
   reportedByUserNumber: string;
   description: string;
-  status: 'pending' | 'in_progress' | 'resolved';
+  status: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED';
   resolvedAt: string | null;
 }
 
@@ -120,7 +112,7 @@ export interface ReportsResponse {
 // 고장 기기 타입 정의 - 새로운 명세에 맞게 수정
 export interface OutOfOrderDevice {
   name: string;
-  type: 'washer' | 'dryer';
+  type: 'WASHER' | 'DRYER';
   floor: string; // "_4F", "_5F" 형식
   outOfOrder: boolean;
 }
@@ -135,12 +127,12 @@ export interface OutOfOrderResponse {
 // 기기 히스토리 타입 정의 추가 (OutOfOrderResponse 타입 정의 다음에 추가)
 export interface MachineHistoryItem {
   status:
-    | 'waiting'
-    | 'reserved'
-    | 'confirmed'
-    | 'running'
-    | 'cancelled'
-    | 'completed';
+    | 'WAITING'
+    | 'RESERVED'
+    | 'CONFIRMED'
+    | 'RUNNING'
+    | 'CANCELLED'
+    | 'COMPLETED';
   createdAt: string;
   pausedSince: string | null;
   confirmedAt: string | null;
@@ -148,6 +140,7 @@ export interface MachineHistoryItem {
   completedAt: string | null;
   cancelledAt: string | null;
   machineLabel: string;
+  room: string;
 }
 
 export interface MachineHistoryResponse {
@@ -167,9 +160,9 @@ export interface ReservationResponse {
 export interface AdminReservationInfo {
   reservationId: number;
   machineLabel: string;
-  status: 'waiting' | 'reserved' | 'confirmed' | 'running';
+  status: 'WAITING' | 'RESERVED' | 'CONFIRMED' | 'RUNNING';
   startTime: string;
-  remainingSeconds: number;
+  remainingTime: string;
 }
 
 export interface AdminReservationsResponse {
@@ -189,7 +182,7 @@ export interface UserInfo {
   restrictionReason: string | null;
   reservationId?: number;
   machineLabel?: string;
-  status?: 'waiting' | 'reserved' | 'confirmed' | 'running';
+  status?: 'WAITING' | 'RESERVED' | 'CONFIRMED' | 'RUNNING';
   startTime?: string;
   remainingSeconds?: number;
 }
@@ -207,7 +200,7 @@ export interface UserInfoResponse {
   roomNumber: string;
   schoolNumber: string;
   startTime: Date | null;
-  status: 'waiting' | 'reserved' | 'confirmed' | 'running';
+  status: 'WAITING' | 'RESERVED' | 'CONFIRMED' | 'RUNNING';
 }
 
 export interface AdminUserInfo {
@@ -548,7 +541,6 @@ export const authApi = {
 
   logout: async () => {
     await forceLogout('User initiated logout');
-    
   },
 };
 
@@ -568,21 +560,21 @@ export const machineApi = {
   },
 
   reportMachine: async (machineName: string, description: string) => {
-    return apiClient.post<ReportResponse>('/machine/report', {
+    return axios.post<ReportResponse>('/api/machine/report', {
       machineName,
       description,
     });
   },
 
   getReports: async () => {
-    return apiClient.get<ReportsResponse>('/machine/admin/reports');
+    return axios.get<Report[]>('/api/machine/admin/reports');
   },
 
   updateReportStatus: async (
     reportId: number,
-    status: 'pending' | 'in_progress' | 'resolved'
+    status: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED'
   ) => {
-    return apiClient.patch<ReportResponse>(
+    return axios.patch<ReportResponse>(
       `/machine/admin/reports/${reportId}?status=${status}`
     );
   },
@@ -599,23 +591,23 @@ export const machineApi = {
     }
 
     const queryString = params.toString();
-    const endpoint = `/machine/admin/out-of-order${
+    const endpoint = `/api/machine/admin/out-of-order${
       queryString ? `?${queryString}` : ''
     }`;
 
-    return apiClient.get<OutOfOrderResponse>(endpoint);
+    return axios.get<OutOfOrderDevice[]>(endpoint);
   },
 
   updateOutOfOrderStatus: async (name: string, outOfOrder: boolean) => {
-    return apiClient.patch<ReportResponse>('/machine/admin/out-of-order', {
+    return axios.patch<ReportResponse>('/api/machine/admin/out-of-order', {
       name,
       outOfOrder,
     });
   },
 
   getHistory: async (machineId: number) => {
-    return apiClient.get<MachineHistoryResponse>(
-      `/reservation/machine/${machineId}/history`
+    return axios.get<MachineHistoryItem[]>(
+      `/api/reservation/machine/${machineId}/history`
     );
   },
 };
@@ -623,17 +615,17 @@ export const machineApi = {
 // Reservation API 함수들
 export const reservationApi = {
   createReservation: async (machineId: number) => {
-    const endpoint = `/reservation/${machineId}`;
+    const endpoint = `/api/reservation/machine/${machineId}`;
 
     try {
-      const response = await apiClient.post(endpoint);
+      const response = await axios.post(endpoint);
 
       return response;
     } catch (error) {
       console.error(`❌ createReservation API error:`, error);
       console.error(`❌ Error details:`, {
-        message: (error)?.message,
-        status: (error)?.status,
+        message: error?.message,
+        status: error?.status,
         endpoint,
         machineId,
       });
@@ -642,11 +634,11 @@ export const reservationApi = {
   },
 
   confirmReservation: async (reservationId: number) => {
-    return apiClient.post(`/reservation/${reservationId}/confirm`);
+    return axios.post(`/api/reservation/${reservationId}/confirm`);
   },
 
   deleteReservation: async (reservationId: number) => {
-    return apiClient.delete(`/reservation/${reservationId}`);
+    return axios.delete(`/api/reservation/${reservationId}`);
   },
 
   getAdminReservations: async (type?: 'WASHER' | 'DRYER', floor?: string) => {
@@ -655,15 +647,15 @@ export const reservationApi = {
     if (floor) params.append('floor', floor);
 
     const queryString = params.toString();
-    const endpoint = `/reservation/admin/reservations${
+    const endpoint = `/api/reservation/admin/reservations${
       queryString ? `?${queryString}` : ''
     }`;
 
-    return apiClient.get<AdminReservationsResponse>(endpoint);
+    return axios.get<AdminReservationInfo[]>(endpoint);
   },
 
   forceDeleteReservation: async (reservationId: number) => {
-    return apiClient.delete(`/reservation/admin/${reservationId}`);
+    return axios.delete(`/api/reservation/admin/${reservationId}`);
   },
 };
 
@@ -684,11 +676,11 @@ export const userApi = {
     if (floor) params.append('floor', floor);
 
     const queryString = params.toString();
-    const endpoint = `/user/admin/user/info${
+    const endpoint = `/api/user/admin/user/info${
       queryString ? `?${queryString}` : ''
     }`;
 
-    return apiClient.get<AdminUsersResponse>(endpoint);
+    return axios.get<AdminUsersResponse>(endpoint);
   },
 
   restrictUser: async (
@@ -701,14 +693,14 @@ export const userApi = {
       pestrictionReason: restrictionData.restrictionReason, // 명세서의 오타에 맞춤
     };
 
-    return apiClient.post<RestrictResponse>(
-      `/user/admin/${userId}/restrict`,
+    return axios.post<RestrictResponse>(
+      `/api/user/admin/${userId}/restrict`,
       formattedData
     );
   },
 
   unrestrictUser: async (userId: number) => {
-    return apiClient.post<RestrictResponse>(`/user/admin/${userId}/unrestrict`);
+    return axios.post<RestrictResponse>(`/api/user/admin/${userId}/unrestrict`);
   },
 };
 

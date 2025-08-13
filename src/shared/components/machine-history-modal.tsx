@@ -21,6 +21,7 @@ import {
   XCircle,
   Play,
   Loader2,
+  User,
 } from 'lucide-react';
 import { machineApi, type MachineHistoryItem } from '@/shared/lib/api-client';
 import { useToast } from '@/shared/components/ui/use-toast';
@@ -43,9 +44,8 @@ export function MachineHistoryModal({
     setIsLoading(true);
     try {
       const response = await machineApi.getHistory(machineId);
-      if (response.success) {
-        setHistoryData(response.data);
-      }
+
+      setHistoryData(response.data);
     } catch (error) {
       console.error('❌ Failed to load machine history:', error);
       toast({
@@ -68,7 +68,7 @@ export function MachineHistoryModal({
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'waiting':
+      case 'WAITING':
         return (
           <Badge
             variant='secondary'
@@ -78,7 +78,7 @@ export function MachineHistoryModal({
             대기 중
           </Badge>
         );
-      case 'reserved':
+      case 'RESERVED':
         return (
           <Badge
             variant='default'
@@ -88,7 +88,7 @@ export function MachineHistoryModal({
             예약됨
           </Badge>
         );
-      case 'confirmed':
+      case 'CONFIRMED':
         return (
           <Badge
             variant='default'
@@ -98,7 +98,7 @@ export function MachineHistoryModal({
             확정됨
           </Badge>
         );
-      case 'running':
+      case 'RUNNING':
         return (
           <Badge
             variant='default'
@@ -108,7 +108,7 @@ export function MachineHistoryModal({
             사용 중
           </Badge>
         );
-      case 'completed':
+      case 'COMPLETED':
         return (
           <Badge
             variant='default'
@@ -118,7 +118,7 @@ export function MachineHistoryModal({
             완료됨
           </Badge>
         );
-      case 'cancelled':
+      case 'CANCELLED':
         return (
           <Badge
             variant='destructive'
@@ -241,6 +241,21 @@ export function MachineHistoryModal({
                           진행 과정
                         </h4>
                         <div className='space-y-2'>
+                          <div
+                            className='flex items-center gap-3 text-sm'
+                          >
+                            <div className='flex-shrink-0'>
+                              <User className='h-4 w-4 text-[#86A9FF]' />
+                            </div>
+                            <div className='flex-1 flex justify-between items-center'>
+                              <span className='text-gray-600 dark:text-gray-400'>
+                                예약 호실
+                              </span>
+                              <span className='text-gray-500 dark:text-gray-500 text-xs'>
+                                {item.room}호
+                              </span>
+                            </div>
+                          </div>
                           {timelineEvents.map((event, eventIndex) => {
                             const IconComponent = event.icon;
                             return (
@@ -266,7 +281,7 @@ export function MachineHistoryModal({
                       </div>
 
                       {/* 완료된 경우 완료 시간 강조 표시 */}
-                      {item.status === 'completed' && item.completedAt && (
+                      {item.status === 'COMPLETED' && item.completedAt && (
                         <div className='mt-4 p-3 bg-green-50 border border-green-200 rounded-lg dark:bg-green-900/20 dark:border-green-800'>
                           <div className='flex items-center gap-2'>
                             <CheckCircle className='h-4 w-4 text-green-600' />
@@ -278,7 +293,7 @@ export function MachineHistoryModal({
                       )}
 
                       {/* 취소된 경우 취소 시간 표시 */}
-                      {item.status === 'cancelled' && item.cancelledAt && (
+                      {item.status === 'CANCELLED' && item.cancelledAt && (
                         <div className='mt-4 p-3 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/20 dark:border-red-800'>
                           <div className='flex items-center gap-2'>
                             <XCircle className='h-4 w-4 text-red-600' />

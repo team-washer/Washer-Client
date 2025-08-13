@@ -3,10 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: { reservationId: string } }
 ) {
-  const body = await request.json();
-  const { userId } = params;
+  const { reservationId } = params;
   const accessToken = request.cookies.get('accessToken')?.value;
   const headers = accessToken
     ? { Authorization: `Bearer ${accessToken}` }
@@ -14,8 +13,8 @@ export async function POST(
 
   try {
     const response = await apiClient.post(
-      `/user/admin/${userId}/restrict`,
-      body,
+      `/reservation/${reservationId}/confirm`,
+      {},
       { headers }
     );
 
@@ -26,7 +25,7 @@ export async function POST(
     }
   } catch (error) {
     return NextResponse.json(
-      { error: '서버에서 사용자 제한 정보를 받아오지 못 했습니다.' },
+      { error: '서버에서 예약 시작을 못 했습니다.' },
       { status: 500 }
     );
   }

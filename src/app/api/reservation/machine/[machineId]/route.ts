@@ -3,10 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: { machineId: string } }
 ) {
-  const body = await request.json();
-  const { userId } = params;
+  const { machineId } = params;
   const accessToken = request.cookies.get('accessToken')?.value;
   const headers = accessToken
     ? { Authorization: `Bearer ${accessToken}` }
@@ -14,9 +13,11 @@ export async function POST(
 
   try {
     const response = await apiClient.post(
-      `/user/admin/${userId}/restrict`,
-      body,
-      { headers }
+      `/reservation/${machineId}`,
+      {},
+      {
+        headers,
+      }
     );
 
     if (response.data && response.data.success) {

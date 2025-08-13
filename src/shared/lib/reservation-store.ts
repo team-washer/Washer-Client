@@ -16,17 +16,17 @@ import {
 import { MachineOperatingState } from './machine-status';
 import { RoleDecryption } from './role-decryption';
 
-export type FloorType = '3F' | '4F' | '5F';
+export type FloorType = 3 | 4 | 5;
 export type MachineType = 'washing' | 'dryer';
-export type MachineStatus = 'available' | 'in-use' | 'reserved';
+export type MachineStatus = 'AVAILABLE' | 'IN-USE' | 'RESERVED';
 export type ReservationStatus =
-  | 'reserved'
-  | 'confirmed'
-  | 'running'
-  | 'collection'
-  | 'connecting'
-  | 'cancelled'
-  | 'completed';
+  | 'RESERVED'
+  | 'CONFIRMED'
+  | 'RUNNING'
+  | 'COLLECTION'
+  | 'CONNECTING'
+  | 'CANCELLED'
+  | 'COMPLETED';
 
 // 서버 데이터를 클라이언트 형식으로 변환하는 함수들
 function convertServerMachineToClient(
@@ -44,7 +44,7 @@ function convertServerMachineToClient(
   const location = locationMatch ? locationMatch[1] : 'R1';
 
   // 기기 상태 결정 - reservations 배열을 활용하여 더 정확한 상태 판단
-  let status: MachineStatus = 'available';
+  let status: MachineStatus = 'AVAILABLE';
 
   // 예약 정보가 있는지 확인
   if (
@@ -52,25 +52,24 @@ function convertServerMachineToClient(
     Array.isArray(serverMachine.reservations) &&
     serverMachine.reservations.length > 0
   ) {
-    // 활성 예약이 있는지 확인 (waiting, reserved, confirmed, running)
     const activeReservation = serverMachine.reservations.find(
       (r) =>
-        r.status === 'waiting' ||
-        r.status === 'reserved' ||
-        r.status === 'confirmed' ||
-        r.status === 'running'
+        r.status === 'WAITING' ||
+        r.status === 'RESERVED' ||
+        r.status === 'CONFIRMED' ||
+        r.status === 'RUNNING'
     );
 
     if (activeReservation) {
-      if (activeReservation.status === 'running') {
-        status = 'in-use';
+      if (activeReservation.status === 'RUNNING') {
+        status = 'IN-USE';
       } else {
-        status = 'reserved';
+        status = 'RESERVED';
       }
     }
-  } else if (serverMachine.machineState === 'run') {
+  } else if (serverMachine.machineState === 'RUN') {
     // 예약 정보가 없지만 기기가 작동 중인 경우
-    status = 'in-use';
+    status = 'IN-USE';
   }
 
   // 남은 시간 계산 - "HH:MM:SS" 형식을 초로 변환
@@ -118,10 +117,10 @@ function convertServerReservationToClient(
 
   // 상태 매핑
   const statusMap: Record<string, ReservationStatus> = {
-    waiting: 'reserved',
-    reserved: 'reserved',
-    confirmed: 'confirmed',
-    running: 'running',
+    WAITING: 'RESERVED',
+    RESERVED: 'RESERVED',
+    CONFIRMED: 'CONFIRMED',
+    RUNNING: 'RUNNING',
   };
 
   // 예약 시작 시간부터 경과 시간 계산
@@ -146,7 +145,7 @@ function convertServerReservationToClient(
     id: Date.now() + Math.random(),
     machineId,
     type,
-    status: statusMap[serverReservation.status] || 'reserved',
+    status: statusMap[serverReservation.status] || 'RESERVED',
     timeRemaining: remainingSeconds,
     startTime: serverReservation.startTime
       ? new Date(serverReservation.startTime).toLocaleTimeString()
@@ -213,7 +212,7 @@ export interface User {
   schoolNumber?: string;
   reservationId?: number;
   machineLabel?: string;
-  status?: 'waiting' | 'reserved' | 'confirmed' | 'running';
+  status?: 'WAITING' | 'RESERVED' | 'CONFIRMED' | 'RUNNING';
   startTime?: string;
   remainingSeconds?: number;
   remainingTime?: string; // 새로 추가
@@ -386,6 +385,11 @@ export const useReservationStore = create<ReservationStore>()(
                   'washing'
                 );
                 machines.push(convertedMachine);
+                // console.log(
+                //   `Converted washer ${index + 1}:`,
+                //   convertedMachine,
+                //   machines
+                // );
               } catch (error) {
                 console.error(
                   `❌ Error converting washer ${index + 1}:`,
@@ -410,6 +414,11 @@ export const useReservationStore = create<ReservationStore>()(
                   'dryer'
                 );
                 machines.push(convertedMachine);
+                // console.log(
+                //   `Converted dryer ${index + 1}:`,
+                //   convertedMachine,
+                //   machines
+                // );
               } catch (error) {
                 console.error(`❌ Error converting dryer ${index + 1}:`, error);
                 console.error(`❌ Dryer data:`, dryer);
@@ -435,7 +444,7 @@ export const useReservationStore = create<ReservationStore>()(
 
         try {
           const userInfo = await userApi.getMyInfo();
-          
+
           set({ currentUserInfo: userInfo, isLoading: false });
         } catch (error) {
           console.error('❌ Failed to fetch user info:', error);
@@ -562,11 +571,11 @@ export const useReservationStore = create<ReservationStore>()(
         const { reservations } = get();
         return reservations.some(
           (reservation) =>
-            (reservation.status === 'reserved' ||
-              reservation.status === 'confirmed' ||
-              reservation.status === 'running' ||
-              reservation.status === 'connecting' ||
-              reservation.status === 'collection')
+            reservation.status === 'RESERVED' ||
+            reservation.status === 'CONFIRMED' ||
+            reservation.status === 'RUNNING' ||
+            reservation.status === 'CONNECTING' ||
+            reservation.status === 'COLLECTION'
         );
       },
 
@@ -575,11 +584,11 @@ export const useReservationStore = create<ReservationStore>()(
         return reservations.some(
           (reservation) =>
             reservation.roomNumber === roomNumber &&
-            (reservation.status === 'reserved' ||
-              reservation.status === 'confirmed' ||
-              reservation.status === 'running' ||
-              reservation.status === 'connecting' ||
-              reservation.status === 'collection')
+            (reservation.status === 'RESERVED' ||
+              reservation.status === 'CONFIRMED' ||
+              reservation.status === 'RUNNING' ||
+              reservation.status === 'CONNECTING' ||
+              reservation.status === 'COLLECTION')
         );
       },
 
@@ -649,7 +658,7 @@ export const useReservationStore = create<ReservationStore>()(
         set((state) => ({
           reservations: state.reservations.filter((reservation) => {
             if (
-              reservation.status === 'collection' &&
+              reservation.status === 'COLLECTION' &&
               reservation.timeRemaining <= 0
             ) {
               return false;
@@ -662,26 +671,26 @@ export const useReservationStore = create<ReservationStore>()(
       getAccessibleFloors: (roomNumber: string) => {
         // 관리자는 모든 층 접근 가능
         if (RoleDecryption() === 'ROLE_ADMIN') {
-          return ['3F', '4F', '5F'];
+          return [3, 4, 5];
         }
 
         const roomNum = Number.parseInt(roomNumber.replace(/[^0-9]/g, ''));
 
         // 3층 유저: 3층, 4층 접근 가능
         if (roomNum >= 300 && roomNum < 400) {
-          return ['3F', '4F'];
+          return [3, 4];
         }
         // 4층 유저: 3층, 4층 접근 가능
         else if (roomNum >= 400 && roomNum < 500) {
-          return ['3F', '4F'];
+          return [3, 4];
         }
         // 5층 유저: 5층만 접근 가능
         else if (roomNum >= 500 && roomNum < 600) {
-          return ['5F'];
+          return [5];
         }
 
         // 기본값: 모든 층 접근 가능
-        return ['3F', '4F', '5F'];
+        return [3, 4, 5];
       },
 
       // 새로운 함수: 기기 작동 상태 정보 가져오기
@@ -731,14 +740,14 @@ export const useReservationStore = create<ReservationStore>()(
         let timeLabel = '';
 
         switch (activeReservation.status) {
-          case 'waiting':
-          case 'reserved':
+          case 'WAITING':
+          case 'RESERVED':
             timeLabel = '예약 만료까지';
             break;
-          case 'confirmed':
+          case 'CONFIRMED':
             timeLabel = '예약 확인까지';
             break;
-          case 'running':
+          case 'RUNNING':
             timeLabel = '사용 완료까지';
             break;
           default:
@@ -822,17 +831,17 @@ export const useReservationStore = create<ReservationStore>()(
           return { canReserve: false, reason: '기기를 찾을 수 없습니다.' };
         if (machine.isOutOfOrder)
           return { canReserve: false, reason: '고장난 기기입니다.' };
-        if (machine.status === 'in-use')
+        if (machine.status === 'IN-USE')
           return { canReserve: false, reason: '현재 사용 중입니다.' };
 
         // 서버에서 받은 예약 정보 확인
         if (machine.reservations && machine.reservations.length > 0) {
           const activeReservation = machine.reservations.find(
             (r) =>
-              r.status === 'waiting' ||
-              r.status === 'reserved' ||
-              r.status === 'confirmed' ||
-              r.status === 'running'
+              r.status === 'WAITING' ||
+              r.status === 'RESERVED' ||
+              r.status === 'CONFIRMED' ||
+              r.status === 'RUNNING'
           );
 
           if (activeReservation) {
@@ -869,10 +878,10 @@ export const useReservationStore = create<ReservationStore>()(
         // 활성 예약 찾기
         const activeReservation = machine.reservations.find(
           (r) =>
-            r.status === 'waiting' ||
-            r.status === 'reserved' ||
-            r.status === 'confirmed' ||
-            r.status === 'running'
+            r.status === 'WAITING' ||
+            r.status === 'RESERVED' ||
+            r.status === 'CONFIRMED' ||
+            r.status === 'RUNNING'
         );
 
         return activeReservation ? activeReservation.room : null;
@@ -894,10 +903,10 @@ export const useReservationStore = create<ReservationStore>()(
         // 활성 예약 찾기
         const activeReservation = machine.reservations.find(
           (r) =>
-            r.status === 'waiting' ||
-            r.status === 'reserved' ||
-            r.status === 'confirmed' ||
-            r.status === 'running'
+            r.status === 'WAITING' ||
+            r.status === 'RESERVED' ||
+            r.status === 'CONFIRMED' ||
+            r.status === 'RUNNING'
         );
 
         return activeReservation ? activeReservation.status : null;

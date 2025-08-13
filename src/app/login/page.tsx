@@ -20,6 +20,7 @@ import { Checkbox } from '@/shared/components/ui/checkbox';
 import { useToast } from '@/shared/components/ui/use-toast';
 import { Shirt, Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
+import { requestPermission } from '@/shared/lib/firebase';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -168,6 +169,7 @@ export default function LoginPage() {
         email: `${formData.emailPrefix}@gsm.hs.kr`,
         password: formData.password,
       });
+      await requestPermission();
       toast({
         title: '로그인 성공',
         description: '환영합니다!',

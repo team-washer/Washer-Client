@@ -1,12 +1,20 @@
-import { apiClient } from "@/shared/lib/api-request";
-import { NextRequest, NextResponse } from "next/server";
+import { apiClient } from '@/shared/lib/api-request';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const userId = body.userId;
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { userId: string } }
+) {
+  const { userId } = params;
+  const accessToken = request.cookies.get('accessToken')?.value;
+  const headers = accessToken
+    ? { Authorization: `Bearer ${accessToken}` }
+    : undefined;
 
   try {
-    const response = await apiClient.post(`/user/admin/${userId}/unrestrict`);
+    const response = await apiClient.post(`/user/admin/${userId}/unrestrict`, {
+      headers,
+    });
 
     if (response.data && response.data.success) {
       return new Response(response.data.message, { status: 200 });
