@@ -6,10 +6,11 @@ export async function middleware(request: NextRequest) {
   const refreshToken = request.cookies.get('refreshToken')?.value;
 
   if (!refreshToken) {
-    const response = NextResponse.redirect(new URL('/login', request.url));
-    response.cookies.delete('accessToken');
-    response.cookies.delete('refreshToken');
-    response.cookies.delete('role');
+    const response = NextResponse.json({ message: 'Logout successful' });
+    response.cookies.set('accessToken', '', { expires: new Date(0) });
+    response.cookies.set('refreshToken', '', { expires: new Date(0) });
+    response.cookies.set('role', '', { expires: new Date(0) });
+
     return response;
   }
 
@@ -28,13 +29,12 @@ export async function middleware(request: NextRequest) {
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          const loginResponse = NextResponse.redirect(
-            new URL('/login', request.url)
-          );
-          loginResponse.cookies.delete('accessToken');
-          loginResponse.cookies.delete('refreshToken');
-          loginResponse.cookies.delete('role');
-          return loginResponse;
+          const response = NextResponse.json({ message: 'Logout successful' });
+          response.cookies.set('accessToken', '', { expires: new Date(0) });
+          response.cookies.set('refreshToken', '', { expires: new Date(0) });
+          response.cookies.set('role', '', { expires: new Date(0) });
+
+          return response;
         }
 
         console.warn(
