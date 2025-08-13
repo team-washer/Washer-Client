@@ -16,7 +16,7 @@ export async function DELETE(
 
   try {
     const response = await apiClient.delete(
-      `/reservation/admin/${reservationId}`,
+      `/reservation/${reservationId}`,
       { headers, params: { type, floor } }
     );
     console.log('예약 취소 응답:', response.data);

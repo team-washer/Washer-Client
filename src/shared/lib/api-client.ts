@@ -575,7 +575,7 @@ export const machineApi = {
     status: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED'
   ) => {
     return axios.patch<ReportResponse>(
-      `/machine/admin/reports/${reportId}?status=${status}`
+      `/api/machine/admin/reports/${reportId}?status=${status}`
     );
   },
 
@@ -680,7 +680,7 @@ export const userApi = {
       queryString ? `?${queryString}` : ''
     }`;
 
-    return axios.get<AdminUsersResponse>(endpoint);
+    return axios.get<AdminUserInfo[]>(endpoint);
   },
 
   restrictUser: async (

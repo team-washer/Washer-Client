@@ -249,10 +249,8 @@ export default function AdminPage() {
   const loadAdminUsers = async () => {
     try {
       const response = await userApi.getUsers();
-      // if (response.success) {
-      //   setAdminUsers(response.data);
-      // }
-      console.log('Admin users loaded:', response.data);
+
+      setAdminUsers(response.data);
     } catch (error) {
       console.error('Failed to load admin users:', error);
     }
@@ -298,13 +296,11 @@ export default function AdminPage() {
         selectedReportId,
         selectedReportStatus
       );
-      // if (response.success) {
-      //   toast({
-      //     title: '상태 변경 완료',
-      //     description: '신고 상태가 성공적으로 변경되었습니다.',
-      //   });
-      //   await loadReports();
-      // }
+      toast({
+        title: '상태 변경 완료',
+        description: '신고 상태가 성공적으로 변경되었습니다.',
+      });
+      await loadReports();
       console.log('Report status updated:', response.data);
     } catch (error) {
       toast({
@@ -386,13 +382,11 @@ export default function AdminPage() {
         restrictionReason: restrictionReason,
       });
 
-      // if (response.success) {
-      //   toast({
-      //     title: '사용자 정지 완료',
-      //     description: `사용자가 ${restrictionDuration} 동안 정지되었습니다.`,
-      //   });
-      //   await loadAdminUsers();
-      // }
+      toast({
+        title: '사용자 정지 완료',
+        description: `사용자가 ${restrictionDuration} 동안 정지되었습니다.`,
+      });
+      await loadAdminUsers();
       console.log('User restricted:', response.data);
     } catch (error) {
       console.error(`❌ Restrict user error:`, error);
@@ -414,13 +408,12 @@ export default function AdminPage() {
 
     try {
       const response = await userApi.unrestrictUser(selectedUserId);
-      // if (response.success) {
-      //   toast({
-      //     title: '정지 해제 완료',
-      //     description: '사용자의 정지가 해제되었습니다.',
-      //   });
-      //   await loadAdminUsers();
-      // }
+
+      toast({
+        title: '정지 해제 완료',
+        description: '사용자의 정지가 해제되었습니다.',
+      });
+      await loadAdminUsers();
       console.log('User unrestricted:', response.data);
     } catch (error) {
       toast({
@@ -892,7 +885,7 @@ export default function AdminPage() {
                           <p className='font-medium'>{device.name}</p>
                           <p className='text-sm text-gray-500'>
                             {device.type === 'WASHER' ? '세탁기' : '건조기'} •{' '}
-                            {device.floor}
+                            {device.floor}층
                           </p>
                         </div>
                       </div>
@@ -1106,10 +1099,10 @@ export default function AdminPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='all'>전체</SelectItem>
-                        <SelectItem value='pending'>대기</SelectItem>
-                        <SelectItem value='in_progress'>처리중</SelectItem>
-                        <SelectItem value='resolved'>완료</SelectItem>
+                        <SelectItem value='ALL'>전체</SelectItem>
+                        <SelectItem value='PENDING'>대기</SelectItem>
+                        <SelectItem value='IN_PROGRESS'>처리중</SelectItem>
+                        <SelectItem value='RESOLVED'>완료</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1237,7 +1230,7 @@ export default function AdminPage() {
                     <Label htmlFor='user-gender'>성별</Label>
                     <Select
                       value={userGenderFilter}
-                      onValueChange={(value) => setUserGenderFilter(value as 'ALL' | 'MALE' | 'FEMALE'  )}
+                      onValueChange={(value) => setUserGenderFilter(value as 'ALL' | 'MALE' | 'FEMALE')}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -1399,9 +1392,9 @@ export default function AdminPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value='pending'>대기</SelectItem>
-                    <SelectItem value='in_progress'>처리중</SelectItem>
-                    <SelectItem value='resolved'>완료</SelectItem>
+                    <SelectItem value='PENDING'>대기</SelectItem>
+                    <SelectItem value='IN_PROGRESS'>처리중</SelectItem>
+                    <SelectItem value='RESOLVED'>완료</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

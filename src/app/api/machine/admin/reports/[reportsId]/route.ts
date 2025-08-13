@@ -1,9 +1,13 @@
 import { apiClient } from '@/shared/lib/api-request';
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function PATCH(request: NextRequest) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { reportsId: string } }
+) {
   const { searchParams } = new URL(request.url);
-  const reportId = searchParams.get('id');
+  const { reportsId } = params;
+  console.log('reportsId:', reportsId);
   const status = searchParams.get('status');
   const accessToken = request.cookies.get('accessToken')?.value;
   const headers = accessToken
@@ -12,10 +16,11 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const response = await apiClient.patch(
-      `/machine/admin/reports/${reportId}?status=${status}`,
-      { headers }
+      `/machine/admin/reports/${reportsId}`,
+      {},
+      { headers, params: { status } }
     );
-    return NextResponse.json(response.data.data);
+    return NextResponse.json(response.data);
   } catch (error) {
     return NextResponse.json(
       { error: '서버에서 리포트 정보를 받아오지 못 했습니다.' },
