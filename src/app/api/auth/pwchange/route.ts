@@ -18,8 +18,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-
-  // Perform password change logic here
-
-  return new Response('Password changed successfully');
 }
