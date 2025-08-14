@@ -836,7 +836,7 @@ export default function AdminPage() {
                     >
                       <SelectTrigger>
                         <SelectValue />
-                      </SelectTrigger>-
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value='ALL'>전체</SelectItem>
                         <SelectItem value='3F'>3층</SelectItem>
@@ -884,8 +884,7 @@ export default function AdminPage() {
                         <div>
                           <p className='font-medium'>{device.name}</p>
                           <p className='text-sm text-gray-500'>
-                            {device.type === 'WASHER' ? '세탁기' : '건조기'} •{' '}
-                            {device.floor}층
+                            {device.type === 'WASHER' ? '세탁기' : '건조기'} {device.floor}층
                           </p>
                         </div>
                       </div>
