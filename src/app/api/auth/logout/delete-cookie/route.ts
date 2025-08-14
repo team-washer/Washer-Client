@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const response = NextResponse.json({ message: 'Logout successful' });
+    const response = NextResponse.json({});
     response.cookies.set('accessToken', '', { expires: new Date(0) });
     response.cookies.set('refreshToken', '', { expires: new Date(0) });
     response.cookies.set('role', '', { expires: new Date(0) });

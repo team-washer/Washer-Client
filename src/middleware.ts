@@ -6,12 +6,7 @@ export async function middleware(request: NextRequest) {
   const refreshToken = request.cookies.get('refreshToken')?.value;
 
   if (!refreshToken) {
-    const response = NextResponse.json({ message: 'Logout successful' });
-    response.cookies.set('accessToken', '', { expires: new Date(0) });
-    response.cookies.set('refreshToken', '', { expires: new Date(0) });
-    response.cookies.set('role', '', { expires: new Date(0) });
-
-    return response;
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   if (!accessToken) {
@@ -28,15 +23,6 @@ export async function middleware(request: NextRequest) {
       );
 
       if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          const response = NextResponse.json({ message: 'Logout successful' });
-          response.cookies.set('accessToken', '', { expires: new Date(0) });
-          response.cookies.set('refreshToken', '', { expires: new Date(0) });
-          response.cookies.set('role', '', { expires: new Date(0) });
-
-          return response;
-        }
-
         console.warn(
           `Token refresh failed with status ${response.status}, continuing with existing session`
         );
