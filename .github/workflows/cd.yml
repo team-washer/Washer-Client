@@ -42,7 +42,13 @@ jobs:
       - name: Build app
         run: pnpm run build
         
+      - name: Install PM2 as dev dependency (if not in package.json)
+        run: |
+          if ! pnpm list pm2 &> /dev/null; then
+            pnpm add -D pm2
+          fi
+          
       - name: Restart app with PM2
         run: |
-          pm2 startOrRestart ecosystem.config.js --env production
-          pm2 save
+          pnpm exec pm2 startOrRestart ecosystem.config.js --env production
+          pnpm exec pm2 save
