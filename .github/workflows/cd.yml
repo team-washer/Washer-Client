@@ -48,8 +48,14 @@ jobs:
           
       - name: Restart app with PM2
         run: |
+          echo "=== 기존 프로세스 정리 ==="
           pm2 stop washer-client || true
           pm2 delete washer-client || true
           
-          pm2 start pnpm --name "washer-client" -- start
+          echo "=== Next.js 직접 실행 ==="
+          # ecosystem.config.js 대신 직접 명령어로 실행
+          pm2 start npm --name "washer-client" -- start
+          
+          echo "=== PM2 저장 및 최종 상태 ==="
           pm2 save
+          pm2 list
