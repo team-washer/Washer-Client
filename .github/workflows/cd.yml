@@ -42,13 +42,14 @@ jobs:
       - name: Build app
         run: pnpm run build
         
-      - name: Install PM2 as dev dependency (if not in package.json)
+      - name: Install PM2 globally
         run: |
-          if ! pnpm list pm2 &> /dev/null; then
-            pnpm add -D pm2
-          fi
+          npm install -g pm2
           
       - name: Restart app with PM2
         run: |
-          pnpm exec pm2 startOrRestart ecosystem.config.js --env production
-          pnpm exec pm2 save
+          pm2 stop washer-client || true
+          pm2 delete washer-client || true
+          
+          pm2 start pnpm --name "washer-client" -- start
+          pm2 save
