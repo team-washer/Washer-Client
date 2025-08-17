@@ -88,17 +88,13 @@ export async function middleware(request: NextRequest) {
       }
     } catch (err) {
       console.error('Token refresh failed:', err);
-
-      if (err instanceof Error && err.message.includes('401')) {
-        const response = NextResponse.redirect(new URL('/login', request.url));
-        response.cookies.delete('accessToken');
-        response.cookies.delete('refreshToken');
-        response.cookies.delete('role');
-        return response;
-      }
+      const response = NextResponse.redirect(new URL('/login', request.url));
+      response.cookies.delete('accessToken');
+      response.cookies.delete('refreshToken');
+      response.cookies.delete('role');
 
       console.warn('Token refresh error, continuing with existing session');
-      return NextResponse.next();
+      return response;
     }
   }
 
