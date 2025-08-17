@@ -424,7 +424,7 @@ export function WashingMachineList() {
                           {(hasActiveReservation(userId) ||
                             hasActiveReservationByRoom(userRoomNumber) ||
                             isCurrentUserRestricted()) &&
-                            status.status === "available" && (
+                            status.status === "AVAILABLE" && (
                               <div className="text-xs text-orange-600 dark:text-orange-400 text-center">
                                 <AlertTriangle className="h-3 w-3 inline mr-1" />
                                 {isCurrentUserRestricted()
