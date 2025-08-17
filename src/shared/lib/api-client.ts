@@ -189,7 +189,7 @@ export interface UserInfo {
 
 export interface UserInfoResponse {
   completedAt: Date | null;
-  gender: string;
+  gender: 'MALE' | 'FEMALE';
   id: string;
   machineLabel: string | null;
   name: string;
