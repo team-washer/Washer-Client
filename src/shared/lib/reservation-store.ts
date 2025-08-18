@@ -94,7 +94,7 @@ function convertServerMachineToClient(
     id: serverMachine.label || `unknown-${Date.now()}`,
     serverId: serverMachine.id || 0,
     type,
-    floor: (serverMachine.floor as FloorType) || '3F',
+    floor: (serverMachine.floor as FloorType) || 3,
     location,
     status,
     isOutOfOrder: serverMachine.isOutOfOrder || false,
@@ -767,30 +767,27 @@ export const useReservationStore = create<ReservationStore>()(
         try {
           const response = await userApi.restrictUser(userId, duration);
 
-          if (response.success) {
-            // 로컬 상태도 업데이트
-            const restrictedUntil = new Date();
-            const hours = duration.includes('시간')
-              ? Number.parseInt(duration)
-              : duration.includes('일')
-              ? Number.parseInt(duration) * 24
-              : duration.includes('주일')
-              ? Number.parseInt(duration) * 24 * 7
-              : 1;
-            restrictedUntil.setHours(restrictedUntil.getHours() + hours);
+          const restrictedUntil = new Date();
+          const hours = duration.includes('시간')
+            ? Number.parseInt(duration)
+            : duration.includes('일')
+            ? Number.parseInt(duration) * 24
+            : duration.includes('주일')
+            ? Number.parseInt(duration) * 24 * 7
+            : 1;
+          restrictedUntil.setHours(restrictedUntil.getHours() + hours);
 
-            set((state) => ({
-              users: state.users.map((user) =>
-                user.serverId === userId.toString()
-                  ? {
-                      ...user,
-                      restrictedUntil: restrictedUntil.toISOString(),
-                      restrictionReason: `관리자에 의한 ${duration} 사용 제한`,
-                    }
-                  : user
-              ),
-            }));
-          }
+          set((state) => ({
+            users: state.users.map((user) =>
+              user.serverId === userId.toString()
+                ? {
+                    ...user,
+                    restrictedUntil: restrictedUntil.toISOString(),
+                    restrictionReason: `관리자에 의한 ${duration} 사용 제한`,
+                  }
+                : user
+            ),
+          }));
         } catch (error) {
           console.error('❌ Failed to restrict user:', error);
           throw error;
@@ -802,20 +799,17 @@ export const useReservationStore = create<ReservationStore>()(
         try {
           const response = await userApi.unrestrictUser(userId);
 
-          if (response.success) {
-            // 로컬 상태도 업데이트
-            set((state) => ({
-              users: state.users.map((user) =>
-                user.serverId === userId.toString()
-                  ? {
-                      ...user,
-                      restrictedUntil: null,
-                      restrictionReason: null,
-                    }
-                  : user
-              ),
-            }));
-          }
+          set((state) => ({
+            users: state.users.map((user) =>
+              user.serverId === userId.toString()
+                ? {
+                    ...user,
+                    restrictedUntil: null,
+                    restrictionReason: null,
+                  }
+                : user
+            ),
+          }));
         } catch (error) {
           console.error('❌ Failed to unrestrict user:', error);
           throw error;

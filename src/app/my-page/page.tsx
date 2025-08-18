@@ -47,26 +47,27 @@ export default function MyPage() {
     try {
       setIsLoading(true)
       const response = await userApi.getMyInfo()
-      
-      if (response.status===200 && response.data) {
-        setUserInfo(response.data)
 
-        // 서버에서 받은 remainingTime을 우선적으로 사용
-        if (userInfo?.remainingTime !== "00:00:00") {
-          // 서버에서 받은 remainingTime 파싱 (HH:MM:SS 형식)
-          const parsedTime = parseTimeStringToSeconds(userInfo?.remainingTime ?? "")
-          setRemainingTime(parsedTime)
+      setUserInfo(response.data)
+      console.log("User info loaded:", response.data, userInfo)
+
+      // 서버에서 받은 remainingTime을 우선적으로 사용
+      if (response.data.remainingTime !== "00:00:00") {
+        // 서버에서 받은 remainingTime 파싱 (HH:MM:SS 형식)
+        const parsedTime = parseTimeStringToSeconds(response.data.remainingTime || "")
+        setRemainingTime(parsedTime)
+        console.log("Parsed remaining time from server:", parsedTime)
+        console.log("User info:", userInfo);
+      } else {
+        // 서버에서 시간 정보가 없을 때만 클라이언트에서 추정
+        if (response.data.status === "WAITING") {
+          // 대기 중: 5분 (300초)
+          setRemainingTime(300)
+        } else if (response.data.status === "CONFIRMED") {
+          // 확정됨: 2분 (120초) - 서버 연결 대기 시간
+          setRemainingTime(120)
         } else {
-          // 서버에서 시간 정보가 없을 때만 클라이언트에서 추정
-          if (userInfo?.status === "WAITING") {
-            // 대기 중: 5분 (300초)
-            setRemainingTime(300)
-          } else if (userInfo?.status === "CONFIRMED") {
-            // 확정됨: 2분 (120초) - 서버 연결 대기 시간
-            setRemainingTime(120)
-          } else {
-            setRemainingTime(0)
-          }
+          setRemainingTime(0)
         }
       }
     } catch (error) {
@@ -366,11 +367,11 @@ export default function MyPage() {
 
   const getRemainingTimeLabel = (status: string) => {
     switch (status) {
-      case "waiting":
+      case "WAITING":
         return "확정까지 남은 시간"
-      case "confirmed":
+      case "CONFIRMED":
         return "연결까지 남은 시간"
-      case "running":
+      case "RUNNING":
         return "완료까지 남은 시간"
       default:
         return "남은 시간"
@@ -563,32 +564,29 @@ export default function MyPage() {
 
                   {remainingTime > 0 && (
                     <div
-                      className={`p-4 rounded-lg border ${
-                        userInfo.status === "RUNNING"
-                          ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
-                          : "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
-                      }`}
+                      className={`p-4 rounded-lg border ${userInfo.status === "RUNNING"
+                        ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
+                        : "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
+                        }`}
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <Clock
                           className={`h-5 w-5 ${userInfo.status === "RUNNING" ? "text-green-600" : "text-blue-600"}`}
                         />
                         <span
-                          className={`font-medium ${
-                            userInfo.status === "RUNNING"
-                              ? "text-green-800 dark:text-green-400"
-                              : "text-blue-800 dark:text-blue-400"
-                          }`}
+                          className={`font-medium ${userInfo.status === "RUNNING"
+                            ? "text-green-800 dark:text-green-400"
+                            : "text-blue-800 dark:text-blue-400"
+                            }`}
                         >
                           {getRemainingTimeLabel(userInfo.status || "")}
                         </span>
                       </div>
                       <p
-                        className={`text-2xl font-bold ${
-                          userInfo.status === "RUNNING"
-                            ? "text-green-600 dark:text-green-400"
-                            : "text-blue-600 dark:text-blue-400"
-                        }`}
+                        className={`text-2xl font-bold ${userInfo.status === "RUNNING"
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-blue-600 dark:text-blue-400"
+                          }`}
                       >
                         {formatTime(remainingTime)}
                       </p>
