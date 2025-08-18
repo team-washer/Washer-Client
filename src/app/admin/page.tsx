@@ -61,6 +61,17 @@ import {
 import { usePullToRefresh } from '@/shared/hooks/use-pull-to-refresh';
 import { RoleDecryption } from '@/shared/lib/role-decryption';
 
+// 시간을 포맷팅하는 함수 (초 -> HH:MM:SS)
+const formatSecondsToTime = (seconds: number): string => {
+  if (seconds <= 0) return '00:00:00';
+
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
+
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
+
 export default function AdminPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -133,6 +144,47 @@ export default function AdminPage() {
     },
     threshold: 80,
   });
+
+  // 실시간 카운트다운을 위한 useEffect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAdminReservations(prevReservations =>
+        prevReservations.map(reservation => {
+          if (reservation.remainingSeconds > 0) {
+            return {
+              ...reservation,
+              remainingSeconds: reservation.remainingSeconds - 1,
+              remainingTime: formatSecondsToTime(reservation.remainingSeconds - 1)
+            };
+          }
+          return reservation;
+        })
+      );
+
+      // 정지된 사용자의 남은 시간도 업데이트
+      setAdminUsers(prevUsers =>
+        prevUsers.map(user => {
+          if (user.restrictedUntil) {
+            const now = new Date();
+            const restrictedUntil = new Date(user.restrictedUntil);
+            const diffMs = restrictedUntil.getTime() - now.getTime();
+
+            if (diffMs <= 0) {
+              // 정지 시간이 끝났으면 정지 상태 해제
+              return {
+                ...user,
+                restrictedUntil: null,
+                restrictionReason: null
+              };
+            }
+          }
+          return user;
+        })
+      );
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const isAdminUser = RoleDecryption() === 'ROLE_ADMIN';
@@ -324,16 +376,13 @@ export default function AdminPage() {
         deviceName,
         !currentStatus
       );
-      // if (response.success) {
-      //   toast({
-      //     title: !currentStatus ? '기기 고장 등록' : '기기 수리 완료',
-      //     description: `${deviceName} 기기가 ${
-      //       !currentStatus ? '고장 상태로 등록' : '수리 완료 상태로 변경'
-      //     }되었습니다.`,
-      //   });
-      //   await loadOutOfOrderDevices();
-      //   await fetchMachines(); // 메인 기기 목록도 새로고침
-      // }
+      toast({
+        title: !currentStatus ? '기기 고장 등록' : '기기 수리 완료',
+        description: `${deviceName} 기기가 ${!currentStatus ? '고장 상태로 등록' : '수리 완료 상태로 변경'
+          }되었습니다.`,
+      });
+      await loadOutOfOrderDevices();
+      await fetchMachines(); // 메인 기기 목록도 새로고침
     } catch (error) {
       toast({
         title: '상태 변경 실패',
@@ -349,13 +398,11 @@ export default function AdminPage() {
       const response = await reservationApi.forceDeleteReservation(
         reservationId
       );
-      // if (response.success) {
-      //   toast({
-      //     title: '예약 삭제 완료',
-      //     description: '예약이 성공적으로 삭제되었습니다.',
-      //   });
-      //   await loadAdminReservations();
-      // }
+      toast({
+        title: '예약 삭제 완료',
+        description: '예약이 성공적으로 삭제되었습니다.',
+      });
+      await loadAdminReservations();
     } catch (error) {
       toast({
         title: '예약 삭제 실패',
@@ -759,7 +806,9 @@ export default function AdminPage() {
                           </p>
                           <p className='text-xs text-gray-500'>
                             남은 시간:{' '}
-                            {reservation.remainingTime}
+                            <span className={`font-mono ${reservation.remainingSeconds <= 300 ? 'text-red-600 font-semibold' : ''}`}>
+                              {reservation.remainingTime}
+                            </span>
                           </p>
                         </div>
                         <Badge
@@ -1310,7 +1359,7 @@ export default function AdminPage() {
                                   <Clock className='h-3 w-3 mr-1' />
                                   정지 중
                                 </Badge>
-                                <p className='text-xs text-red-600 mt-1'>
+                                <p className='text-xs text-red-600 mt-1 font-mono'>
                                   남은 시간:{' '}
                                   {getRestrictedTimeRemaining(
                                     user.restrictedUntil!
