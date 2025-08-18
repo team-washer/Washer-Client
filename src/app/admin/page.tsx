@@ -479,8 +479,7 @@ export default function AdminPage() {
     const matchesType =
       deviceTypeFilter === 'ALL' || device.type === deviceTypeFilter;
     const matchesFloor =
-      floorFilter === 'ALL' ||
-      device.floor.includes(floorFilter.replace('F', ''));
+      floorFilter === 'ALL' || floorFilter.includes(device.floor);
 
     return matchesSearch && matchesType && matchesFloor;
   });
@@ -839,9 +838,9 @@ export default function AdminPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value='ALL'>전체</SelectItem>
-                        <SelectItem value='3F'>3층</SelectItem>
-                        <SelectItem value='4F'>4층</SelectItem>
-                        <SelectItem value='5F'>5층</SelectItem>
+                        <SelectItem value='3'>3층</SelectItem>
+                        <SelectItem value='4'>4층</SelectItem>
+                        <SelectItem value='5'>5층</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -967,7 +966,7 @@ export default function AdminPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='all'>전체</SelectItem>
+                        <SelectItem value='ALL'>전체</SelectItem>
                         <SelectItem value='WASHER'>세탁기</SelectItem>
                         <SelectItem value='DRYER'>건조기</SelectItem>
                       </SelectContent>
@@ -1251,7 +1250,7 @@ export default function AdminPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='all'>전체</SelectItem>
+                        <SelectItem value='ALL'>전체</SelectItem>
                         <SelectItem value='3'>3층</SelectItem>
                         <SelectItem value='4'>4층</SelectItem>
                         <SelectItem value='5'>5층</SelectItem>
