@@ -363,11 +363,11 @@ export const useReservationStore = create<ReservationStore>()(
         try {
           const response = await machineApi.getDevices();
 
-          // if (!response?.success || !response.data) {
-          //   console.error('❌ Invalid API response', response);
-          //   set({ isLoading: false });
-          //   return;
-          // }
+          if (!response.data) {
+            console.error('❌ Invalid API response', response);
+            set({ isLoading: false });
+            return;
+          }
 
           const machines: Machine[] = [];
 
@@ -385,11 +385,6 @@ export const useReservationStore = create<ReservationStore>()(
                   'washing'
                 );
                 machines.push(convertedMachine);
-                // console.log(
-                //   `Converted washer ${index + 1}:`,
-                //   convertedMachine,
-                //   machines
-                // );
               } catch (error) {
                 console.error(
                   `❌ Error converting washer ${index + 1}:`,
@@ -414,11 +409,6 @@ export const useReservationStore = create<ReservationStore>()(
                   'dryer'
                 );
                 machines.push(convertedMachine);
-                // console.log(
-                //   `Converted dryer ${index + 1}:`,
-                //   convertedMachine,
-                //   machines
-                // );
               } catch (error) {
                 console.error(`❌ Error converting dryer ${index + 1}:`, error);
                 console.error(`❌ Dryer data:`, dryer);
