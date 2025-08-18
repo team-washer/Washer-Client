@@ -94,7 +94,7 @@ function convertServerMachineToClient(
     id: serverMachine.label || `unknown-${Date.now()}`,
     serverId: serverMachine.id || 0,
     type,
-    floor: (serverMachine.floor as FloorType) || '3F',
+    floor: (serverMachine.floor as FloorType) || 3,
     location,
     status,
     isOutOfOrder: serverMachine.isOutOfOrder || false,
