@@ -22,13 +22,6 @@ export async function middleware(request: NextRequest) {
         }
       );
 
-      if (!response.ok) {
-        console.warn(
-          `Token refresh failed with status ${response.status}, continuing with existing session`
-        );
-        return NextResponse.next();
-      }
-
       const data = await response.json();
 
       if (data && data.success && data.data) {
@@ -80,21 +73,22 @@ export async function middleware(request: NextRequest) {
         });
 
         return nextResponse;
-      } else {
-        console.warn(
-          'Invalid response format from refresh endpoint, continuing with existing session'
-        );
-        return NextResponse.next();
+      } else if (!data.success) {
+        const response = NextResponse.redirect(new URL('/login', request.url));
+        response.cookies.delete('accessToken');
+        response.cookies.delete('refreshToken');
+        response.cookies.delete('role');
+
+        return response;
       }
     } catch (err) {
-      console.error('Token refresh failed:', err);
       const response = NextResponse.redirect(new URL('/login', request.url));
       response.cookies.delete('accessToken');
       response.cookies.delete('refreshToken');
       response.cookies.delete('role');
 
-      console.warn('Token refresh error, continuing with existing session');
       return response;
+      console.log('Token refresh error, continuing with existing session');
     }
   }
 
