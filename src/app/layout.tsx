@@ -4,7 +4,7 @@ import '@/app/globals.css';
 import { Toaster } from '@/shared/components/toaster';
 import { Navbar } from '@/shared/components/navbar';
 import '@/shared/lib/firebase';
-import { Metadata } from 'next';
+import { Metadata, Viewport } from 'next';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -39,6 +39,13 @@ export const metadata: Metadata = {
     siteName: 'Washer',
     images: ['/favicon.ico'],
   },
+};
+
+export const viewport: Viewport = {
+  initialScale: 1,
+  minimumScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
