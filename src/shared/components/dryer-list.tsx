@@ -15,9 +15,11 @@ import { formatTime } from "@/shared/lib/utils"
 // import 문에 MachineHistoryModal 추가
 import { MachineHistoryModal } from "@/shared/components/machine-history-modal"
 import { AxiosError } from "axios"
+import { useRouter } from "next/navigation"
 
 export function DryerList() {
   const { toast } = useToast()
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false)
   const [reservingMachineId, setReservingMachineId] = useState<string | null>(null)
   const [refreshCooldown, setRefreshCooldown] = useState(0)
@@ -130,6 +132,7 @@ export function DryerList() {
       // 데이터 새로고침
       await fetchMyInfo()
       await fetchMachines()
+      router.push('my-page')
     } catch (error: any) {
       console.error("❌ Reservation error:", error.status)
 
@@ -357,7 +360,8 @@ export function DryerList() {
                                   isLoading ||
                                   hasActiveReservation(userId) ||
                                   hasActiveReservationByRoom(userRoomNumber) ||
-                                  isCurrentUserRestricted()
+                                  isCurrentUserRestricted() ||
+                                  !!currentUser?.reservationId
                                 }
                                 className="flex-1 bg-[#86A9FF] hover:bg-[#6487DB] text-white text-sm py-2 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
