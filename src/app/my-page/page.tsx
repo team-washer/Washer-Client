@@ -277,19 +277,19 @@ export default function MyPage() {
             title: "예약 확정 완료",
             description: `예약이 확정되었습니다. ${machineType} 시작 버튼을 눌러주세요.`,
           })
-          const parsedTime = parseTimeStringToSeconds(response.data.remainingTime || "00:00:00")
-          setRemainingTime(parsedTime);
         } else if (userInfo.status === "RESERVED") {
           toast({
             title: `${machineType} 시작`,
             description: `${machineType}기에 연결 중입니다. 잠시만 기다려주세요.`,
           })
         }
-
+        
         // 사용자 정보 새로고침
         const updatedUserInfo = await userApi.getMyInfo()
         if (updatedUserInfo.status === 200) {
           setUserInfo(updatedUserInfo.data)
+          const parsedTime = parseTimeStringToSeconds(updatedUserInfo.data.remainingTime || "00:00:00")
+          setRemainingTime(parsedTime);
         }
       }
     } catch (error) {
