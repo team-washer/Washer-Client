@@ -49,7 +49,6 @@ export default function MyPage() {
       const response = await userApi.getMyInfo()
 
       setUserInfo(response.data)
-      console.log("User info loaded:", response.data, userInfo)
 
       // 서버에서 받은 remainingTime을 우선적으로 사용
       if (response.data.remainingTime !== "00:00:00") {
@@ -278,6 +277,8 @@ export default function MyPage() {
             title: "예약 확정 완료",
             description: `예약이 확정되었습니다. ${machineType} 시작 버튼을 눌러주세요.`,
           })
+          const parsedTime = parseTimeStringToSeconds(response.data.remainingTime || "00:00:00")
+          setRemainingTime(parsedTime);
         } else if (userInfo.status === "RESERVED") {
           toast({
             title: `${machineType} 시작`,
