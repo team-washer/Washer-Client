@@ -38,7 +38,7 @@ export async function PATCH(request: NextRequest) {
       body,
       { headers }
     );
-    return NextResponse.json(response.data.data);
+    return NextResponse.json(response.data);
   } catch (error) {
     return NextResponse.json(
       { error: '서버에서 리포트 정보를 업데이트하지 못 했습니다.' },
