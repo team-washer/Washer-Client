@@ -69,7 +69,7 @@ export default function MyPage() {
           setRemainingTime(0)
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to load user info:", error)
       toast({
         title: "사용자 정보 로드 실패",
@@ -83,6 +83,33 @@ export default function MyPage() {
 
   useEffect(() => {
     loadUserInfo()
+  }, [])
+
+  // 웹 페이지 visibility 변경 감지
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadUserInfo()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleFocus = () => {
+      loadUserInfo()
+    }
+
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [])
 
   // 실시간 타이머 - 1초마다 남은 시간 감소
@@ -250,7 +277,7 @@ export default function MyPage() {
           setUserInfo(updatedUserInfo.data)
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Cancel reservation error:", error)
       toast({
         title: "예약 취소 실패",
@@ -283,7 +310,7 @@ export default function MyPage() {
             description: `${machineType}기에 연결 중입니다. 잠시만 기다려주세요.`,
           })
         }
-        
+
         // 사용자 정보 새로고침
         const updatedUserInfo = await userApi.getMyInfo()
         if (updatedUserInfo.status === 200) {
@@ -292,7 +319,7 @@ export default function MyPage() {
           setRemainingTime(parsedTime);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Confirm reservation error:", error)
       toast({
         title: "예약 확정 실패",
@@ -525,7 +552,7 @@ export default function MyPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {userInfo.reservationId ? (
+              {!(userInfo.remainingTime === "00:00:00" || !userInfo.remainingTime) ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
