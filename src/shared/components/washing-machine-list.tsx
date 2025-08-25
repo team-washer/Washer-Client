@@ -377,7 +377,7 @@ export function WashingMachineList() {
                                   hasActiveReservation(userId) ||
                                   hasActiveReservationByRoom(userRoomNumber) ||
                                   isCurrentUserRestricted() ||
-                                  !!currentUser?.reservationId
+                                  !(!!currentUser?.status || currentUser?.status === "CANCELLED" || currentUser?.status === "COMPLETED")
                                 }
                                 className="flex-1 bg-[#86A9FF] hover:bg-[#6487DB] text-white text-sm py-2 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
