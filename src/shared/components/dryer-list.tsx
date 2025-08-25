@@ -39,9 +39,9 @@ export function DryerList() {
   } = useReservationStore()
 
   const currentUser = getCurrentUser()
-  const userId = currentUser?.id || localStorage.getItem("studentId") || ""
-  const userRoomNumber = currentUser?.roomNumber || localStorage.getItem("roomNumber") || ""
-  const accessibleFloors = getAccessibleFloors(userId)
+  const userId = currentUser?.id || ""
+  const userRoomNumber = currentUser?.roomNumber || ""
+  const accessibleFloors = getAccessibleFloors(userRoomNumber);
 
   // 새로고침 쿨다운 타이머
   useEffect(() => {
