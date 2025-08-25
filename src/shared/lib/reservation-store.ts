@@ -212,7 +212,7 @@ export interface User {
   schoolNumber?: string;
   reservationId?: number;
   machineLabel?: string;
-  status?: 'WAITING' | 'RESERVED' | 'CONFIRMED' | 'RUNNING';
+  status?: 'WAITING' | 'RESERVED' | 'CONFIRMED' | 'RUNNING' | 'CANCELLED' | 'COMPLETED';
   startTime?: string;
   remainingSeconds?: number;
   remainingTime?: string; // 새로 추가
