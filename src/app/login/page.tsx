@@ -258,20 +258,6 @@ export default function LoginPage() {
                 </Button>
               </div>
             </div>
-
-            <div className='flex items-center space-x-2'>
-              <Checkbox
-                id='rememberMe'
-                checked={formData.rememberMe}
-                onCheckedChange={handleRememberMeChange}
-                className='border-[#A8C2FF] data-[state=checked]:bg-[#86A9FF] data-[state=checked]:border-[#86A9FF] h-4 w-4 md:h-4 md:w-4'
-                disabled={isLoading}
-              />
-              <Label htmlFor='rememberMe' className='text-sm cursor-pointer'>
-                로그인 유지
-              </Label>
-            </div>
-
             <Button
               type='submit'
               className='w-full bg-[#86A9FF] hover:bg-[#6487DB] text-base py-2.5 disabled:opacity-50 disabled:cursor-not-allowed'
