@@ -33,8 +33,8 @@ export async function middleware(request: NextRequest) {
           role,
         } = data.data;
 
-        const accessTokenExpires = new Date(accessTokenExpiredAt);
-        const refreshTokenExpires = new Date(refreshTokenExpiredAt);
+        const accessTokenExpires = new Date(`${accessTokenExpiredAt}+09:00`);
+        const refreshTokenExpires = new Date(`${refreshTokenExpiredAt}+09:00`);
 
         if (
           isNaN(accessTokenExpires.getTime()) ||
