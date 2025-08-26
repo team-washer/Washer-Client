@@ -1,11 +1,17 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback, use } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/shared/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card"
-import { Badge } from "@/shared/components/ui/badge"
-import { Separator } from "@/shared/components/ui/separator"
+import { useState, useEffect, useCallback, use } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/shared/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/shared/components/ui/card";
+import { Badge } from "@/shared/components/ui/badge";
+import { Separator } from "@/shared/components/ui/separator";
 import {
   User,
   Clock,
@@ -18,8 +24,8 @@ import {
   RefreshCw,
   Loader2,
   GraduationCap,
-} from "lucide-react"
-import { useToast } from "@/shared/components/ui/use-toast"
+} from "lucide-react";
+import { useToast } from "@/shared/components/ui/use-toast";
 import {
   userApi,
   reservationApi,
@@ -28,89 +34,95 @@ import {
   parseTimeStringToSeconds,
   type UserInfo,
   UserInfoResponse,
-} from "@/shared/lib/api-client"
-import { formatTime } from "@/shared/lib/utils"
-import { usePullToRefresh } from "@/shared/hooks/use-pull-to-refresh"
+} from "@/shared/lib/api-client";
+import { formatTime } from "@/shared/lib/utils";
+import { usePullToRefresh } from "@/shared/hooks/use-pull-to-refresh";
 
 export default function MyPage() {
-  const router = useRouter()
-  const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(true)
-  const [userInfo, setUserInfo] = useState<UserInfoResponse | null>(null)
-  const [remainingTime, setRemainingTime] = useState<number>(0)
-  const [refreshCooldown, setRefreshCooldown] = useState(0)
-  const [actionLoading, setActionLoading] = useState(false)
-  const [machineCheckInterval, setMachineCheckInterval] = useState<NodeJS.Timeout | null>(null)
-  const [currentMachineState, setCurrentMachineState] = useState<string>("")
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const [userInfo, setUserInfo] = useState<UserInfoResponse | null>(null);
+  const [remainingTime, setRemainingTime] = useState<number>(0);
+  const [refreshCooldown, setRefreshCooldown] = useState(0);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [machineCheckInterval, setMachineCheckInterval] =
+    useState<NodeJS.Timeout | null>(null);
+  const [currentMachineState, setCurrentMachineState] = useState<string>("");
 
   const loadUserInfo = async () => {
     try {
-      setIsLoading(true)
-      const response = await userApi.getMyInfo()
+      setIsLoading(true);
+      const response = await userApi.getMyInfo();
 
-      setUserInfo(response.data)
+      console.log(response.data);
+
+      setUserInfo(response.data);
 
       // 서버에서 받은 remainingTime을 우선적으로 사용
       if (response.data.remainingTime !== "00:00:00") {
         // 서버에서 받은 remainingTime 파싱 (HH:MM:SS 형식)
-        const parsedTime = parseTimeStringToSeconds(response.data.remainingTime || "")
-        setRemainingTime(parsedTime)
-        console.log("Parsed remaining time from server:", parsedTime)
+        const parsedTime = parseTimeStringToSeconds(
+          response.data.remainingTime || ""
+        );
+        setRemainingTime(parsedTime);
+        console.log("Parsed remaining time from server:", parsedTime);
         console.log("User info:", userInfo);
       } else {
         // 서버에서 시간 정보가 없을 때만 클라이언트에서 추정
         if (response.data.status === "WAITING") {
           // 대기 중: 5분 (300초)
-          setRemainingTime(300)
+          setRemainingTime(300);
         } else if (response.data.status === "CONFIRMED") {
           // 확정됨: 2분 (120초) - 서버 연결 대기 시간
-          setRemainingTime(120)
+          setRemainingTime(120);
         } else {
-          setRemainingTime(0)
+          setRemainingTime(0);
         }
       }
     } catch (error: any) {
-      console.error("Failed to load user info:", error)
+      console.error("Failed to load user info:", error);
       toast({
         title: "사용자 정보 로드 실패",
-        description: error.message || "사용자 정보를 불러오는 중 오류가 발생했습니다.",
+        description:
+          error.message || "사용자 정보를 불러오는 중 오류가 발생했습니다.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    loadUserInfo()
-  }, [])
+    loadUserInfo();
+  }, []);
 
   // 웹 페이지 visibility 변경 감지
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        loadUserInfo()
+      if (document.visibilityState === "visible") {
+        loadUserInfo();
       }
-    }
+    };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-  }, [])
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   useEffect(() => {
     const handleFocus = () => {
-      loadUserInfo()
-    }
+      loadUserInfo();
+    };
 
-    window.addEventListener('focus', handleFocus)
+    window.addEventListener("focus", handleFocus);
 
     return () => {
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, [])
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
 
   // 실시간 타이머 - 1초마다 남은 시간 감소
   useEffect(() => {
@@ -119,101 +131,119 @@ export default function MyPage() {
         setRemainingTime((prev) => {
           if (prev <= 1) {
             // 시간이 끝나면 사용자 정보 다시 로드
-            loadUserInfo()
-            return 0
+            loadUserInfo();
+            return 0;
           }
-          return prev - 1
-        })
-      }, 1000)
+          return prev - 1;
+        });
+      }, 1000);
 
-      return () => clearInterval(timer)
+      return () => clearInterval(timer);
     }
-  }, [remainingTime])
+  }, [remainingTime]);
 
   // 새로고침 쿨타임 타이머
   useEffect(() => {
     if (refreshCooldown > 0) {
       const timer = setTimeout(() => {
-        setRefreshCooldown(refreshCooldown - 1)
-      }, 1000)
-      return () => clearTimeout(timer)
+        setRefreshCooldown(refreshCooldown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
     }
-  }, [refreshCooldown])
+  }, [refreshCooldown]);
 
   // 기기 상태 체크 (confirmed 상태일 때 20초마다)
   const checkMachineStatus = useCallback(async () => {
-    if (!userInfo?.reservationId || !userInfo?.machineLabel) return
+    if (!userInfo?.reservationId || !userInfo?.machineLabel) return;
 
     try {
-      const response = await machineApi.getDevices()
+      const response = await machineApi.getDevices();
       console.log("Machine status response:", response);
       if (response.status === 200 && response.data) {
-        const { washer, dryer } = response.data
-        const allMachines = [...washer, ...dryer]
+        const { washer, dryer } = response.data;
+        const allMachines = [...washer, ...dryer];
 
         // 현재 예약된 기기 찾기
-        const currentMachine = allMachines.find((machine) => machine.label === userInfo.machineLabel)
+        const currentMachine = allMachines.find(
+          (machine) => machine.label === userInfo.machineLabel
+        );
 
         if (currentMachine) {
-          const machineType = userInfo.machineLabel?.toLowerCase().includes("dryer") ? "dryer" : "washer"
-          const jobStateInfo = getMachineJobStateInfo(currentMachine, machineType)
+          const machineType = userInfo.machineLabel
+            ?.toLowerCase()
+            .includes("dryer")
+            ? "dryer"
+            : "washer";
+          const jobStateInfo = getMachineJobStateInfo(
+            currentMachine,
+            machineType
+          );
 
           // 현재 기기 상태 업데이트
-          setCurrentMachineState(jobStateInfo.text)
+          setCurrentMachineState(jobStateInfo.text);
 
           // machineState가 run이면 실제 세탁/건조 시작됨
           if (currentMachine.machineState === "RUN") {
             // 기기 상태 체크 중단
             if (machineCheckInterval) {
-              clearInterval(machineCheckInterval)
-              setMachineCheckInterval(null)
+              clearInterval(machineCheckInterval);
+              setMachineCheckInterval(null);
             }
 
             // remainingTime이 있으면 파싱해서 초로 변환
-            if (currentMachine.remainingTime && currentMachine.remainingTime !== "00:00:00") {
-              const calculatedTime = parseTimeStringToSeconds(currentMachine.remainingTime)
-              setRemainingTime(calculatedTime)
+            if (
+              currentMachine.remainingTime &&
+              currentMachine.remainingTime !== "00:00:00"
+            ) {
+              const calculatedTime = parseTimeStringToSeconds(
+                currentMachine.remainingTime
+              );
+              setRemainingTime(calculatedTime);
             }
 
             // 사용자 정보 새로고침하여 running 상태로 업데이트
-            const updatedUserInfo = await userApi.getMyInfo()
+            const updatedUserInfo = await userApi.getMyInfo();
             if (updatedUserInfo.status === 200 && updatedUserInfo.data) {
-              setUserInfo(updatedUserInfo.data)
+              setUserInfo(updatedUserInfo.data);
             }
 
-            const machineTypeName = userInfo.machineLabel?.toLowerCase().includes("dryer") ? "건조기" : "세탁기"
+            const machineTypeName = userInfo.machineLabel
+              ?.toLowerCase()
+              .includes("dryer")
+              ? "건조기"
+              : "세탁기";
             toast({
               title: `${machineTypeName} 작동 시작`,
               description: `기기가 정상적으로 작동을 시작했습니다. (${jobStateInfo.text})`,
-            })
+            });
           }
         }
       }
     } catch (error) {
-      console.error("❌ Failed to check machine status:", error)
+      console.error("❌ Failed to check machine status:", error);
     }
-  }, [userInfo?.reservationId, userInfo?.machineLabel, machineCheckInterval])
+  }, [userInfo?.reservationId, userInfo?.machineLabel, machineCheckInterval]);
 
   // confirmed 상태일 때 기기 상태 체크 시작
   useEffect(() => {
     if (userInfo?.status === "CONFIRMED" && !machineCheckInterval) {
-      const interval = setInterval(checkMachineStatus, 20000) // 20초마다
-      setMachineCheckInterval(interval)
+      const interval = setInterval(checkMachineStatus, 20000); // 20초마다
+      setMachineCheckInterval(interval);
 
       // 즉시 한 번 체크
-      checkMachineStatus()
+      checkMachineStatus();
     } else if (userInfo?.status !== "CONFIRMED" && machineCheckInterval) {
-      clearInterval(machineCheckInterval)
-      setMachineCheckInterval(null)
+      clearInterval(machineCheckInterval);
+      setMachineCheckInterval(null);
     }
 
     // 컴포넌트 언마운트 시 정리
     return () => {
       if (machineCheckInterval) {
-        clearInterval(machineCheckInterval)
+        clearInterval(machineCheckInterval);
       }
-    }
-  }, [userInfo?.status, machineCheckInterval, checkMachineStatus])
+    };
+  }, [userInfo?.status, machineCheckInterval, checkMachineStatus]);
 
   const handleRefresh = async () => {
     if (refreshCooldown > 0) {
@@ -221,115 +251,126 @@ export default function MyPage() {
         title: "새로고침 대기",
         description: `${refreshCooldown}초 후에 다시 시도해주세요.`,
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    setRefreshCooldown(5) // 5초 쿨타임 설정
-    await loadUserInfo()
+    setRefreshCooldown(5); // 5초 쿨타임 설정
+    await loadUserInfo();
 
     toast({
       title: "새로고침 완료",
       description: "최신 정보로 업데이트되었습니다.",
-    })
-  }
+    });
+  };
 
   // Pull to refresh 설정
   const pullToRefreshHandler = useCallback(async () => {
-    if (refreshCooldown > 0) return
+    if (refreshCooldown > 0) return;
 
-    setRefreshCooldown(5)
-    await loadUserInfo()
+    setRefreshCooldown(5);
+    await loadUserInfo();
 
     toast({
       title: "새로고침 완료",
       description: "최신 정보로 업데이트되었습니다.",
-    })
-  }, [refreshCooldown, loadUserInfo, toast])
+    });
+  }, [refreshCooldown, loadUserInfo, toast]);
 
   const { pullDistance, isPulling, isRefreshing } = usePullToRefresh({
     onRefresh: pullToRefreshHandler,
     disabled: isLoading,
-  })
+  });
 
   const handleCancelReservation = async () => {
-    if (!userInfo?.reservationId) return
+    if (!userInfo?.reservationId) return;
 
-    setActionLoading(true)
+    setActionLoading(true);
     try {
-      const response = await reservationApi.deleteReservation(userInfo.reservationId)
+      const response = await reservationApi.deleteReservation(
+        userInfo.reservationId
+      );
 
       if (response.status === 200) {
         // 기기 상태 체크 중단
         if (machineCheckInterval) {
-          clearInterval(machineCheckInterval)
-          setMachineCheckInterval(null)
+          clearInterval(machineCheckInterval);
+          setMachineCheckInterval(null);
         }
 
         toast({
           title: "예약 취소 완료",
           description: "예약이 성공적으로 취소되었습니다.",
-        })
+        });
 
         // 사용자 정보 새로고침
-        const updatedUserInfo = await userApi.getMyInfo()
+        const updatedUserInfo = await userApi.getMyInfo();
         if (updatedUserInfo.status === 200) {
-          setUserInfo(updatedUserInfo.data)
+          setUserInfo(updatedUserInfo.data);
         }
       }
     } catch (error: any) {
-      console.error("❌ Cancel reservation error:", error)
+      console.error("❌ Cancel reservation error:", error);
       toast({
         title: "예약 취소 실패",
-        description: (error.message as string) || "예약 취소 중 오류가 발생했습니다.",
+        description:
+          (error.message as string) || "예약 취소 중 오류가 발생했습니다.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setActionLoading(false)
+      setActionLoading(false);
     }
-  }
+  };
 
   const handleConfirmReservation = async () => {
-    if (!userInfo?.reservationId) return
+    if (!userInfo?.reservationId) return;
 
-    setActionLoading(true)
+    setActionLoading(true);
     try {
-      const response = await reservationApi.confirmReservation(userInfo?.reservationId)
+      const response = await reservationApi.confirmReservation(
+        userInfo?.reservationId
+      );
 
       if (response.status === 200) {
-        const machineType = userInfo?.machineLabel?.toLowerCase().includes("dryer") ? "건조" : "세탁"
+        const machineType = userInfo?.machineLabel
+          ?.toLowerCase()
+          .includes("dryer")
+          ? "건조"
+          : "세탁";
 
         if (userInfo?.status === "WAITING") {
           toast({
             title: "예약 확정 완료",
             description: `예약이 확정되었습니다. ${machineType} 시작 버튼을 눌러주세요.`,
-          })
+          });
         } else if (userInfo.status === "RESERVED") {
           toast({
             title: `${machineType} 시작`,
             description: `${machineType}기에 연결 중입니다. 잠시만 기다려주세요.`,
-          })
+          });
         }
 
         // 사용자 정보 새로고침
-        const updatedUserInfo = await userApi.getMyInfo()
+        const updatedUserInfo = await userApi.getMyInfo();
         if (updatedUserInfo.status === 200) {
-          setUserInfo(updatedUserInfo.data)
-          const parsedTime = parseTimeStringToSeconds(updatedUserInfo.data.remainingTime || "00:00:00")
+          setUserInfo(updatedUserInfo.data);
+          const parsedTime = parseTimeStringToSeconds(
+            updatedUserInfo.data.remainingTime || "00:00:00"
+          );
           setRemainingTime(parsedTime);
         }
       }
     } catch (error: any) {
-      console.error("❌ Confirm reservation error:", error)
+      console.error("❌ Confirm reservation error:", error);
       toast({
         title: "예약 확정 실패",
         description: error.message || "예약 확정 중 오류가 발생했습니다.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setActionLoading(false)
+      setActionLoading(false);
     }
-  }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -342,71 +383,85 @@ export default function MyPage() {
             <Clock className="h-3 w-3 mr-1" />
             대기 중
           </Badge>
-        )
+        );
       case "RESERVED":
         return (
-          <Badge variant="default" className="bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+          <Badge
+            variant="default"
+            className="bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400"
+          >
             <CheckCircle className="h-3 w-3 mr-1" />
             예약됨
           </Badge>
-        )
+        );
       case "CONFIRMED":
         return (
-          <Badge variant="default" className="bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400">
+          <Badge
+            variant="default"
+            className="bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400"
+          >
             <Loader2 className="h-3 w-3 mr-1 animate-spin" />
             연결 중
           </Badge>
-        )
+        );
       case "RUNNING":
         return (
-          <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
+          <Badge
+            variant="default"
+            className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
+          >
             <Play className="h-3 w-3 mr-1" />
             사용 중
           </Badge>
-        )
+        );
       case "COMPLETED":
         return (
-          <Badge variant="default" className="bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400">
+          <Badge
+            variant="default"
+            className="bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
+          >
             <CheckCircle className="h-3 w-3 mr-1" />
             완료됨
           </Badge>
-        )
+        );
       default:
-        return <Badge variant="outline">알 수 없음</Badge>
+        return <Badge variant="outline">알 수 없음</Badge>;
     }
-  }
+  };
 
   const getStatusDescription = (status: string) => {
     switch (status) {
       case "WAITING":
-        return "예약이 대기 중입니다. 5분 이내에 확정해주세요."
+        return "예약이 대기 중입니다. 5분 이내에 확정해주세요.";
       case "RESERVED":
-        return "예약이 확정되었습니다. 세탁/건조를 시작해주세요."
+        return "예약이 확정되었습니다. 세탁/건조를 시작해주세요.";
       case "CONFIRMED":
-        return "기기에 연결 중입니다. 잠시만 기다려주세요."
+        return "기기에 연결 중입니다. 잠시만 기다려주세요.";
       case "RUNNING":
-        return "현재 세탁/건조가 진행 중입니다."
+        return "현재 세탁/건조가 진행 중입니다.";
       case "COMPLETED":
-        return "세탁/건조가 완료되었습니다."
+        return "세탁/건조가 완료되었습니다.";
       default:
-        return ""
+        return "";
     }
-  }
+  };
 
   const getRemainingTimeLabel = (status: string) => {
     switch (status) {
       case "WAITING":
-        return "확정까지 남은 시간"
+        return "확정까지 남은 시간";
       case "CONFIRMED":
-        return "연결까지 남은 시간"
+        return "연결까지 남은 시간";
       case "RUNNING":
-        return "완료까지 남은 시간"
+        return "완료까지 남은 시간";
       default:
-        return "남은 시간"
+        return "남은 시간";
     }
-  }
+  };
 
-  const isRestricted = userInfo?.restrictedUntil && new Date(userInfo.restrictedUntil) > new Date()
+  const isRestricted =
+    userInfo?.restrictedUntil &&
+    new Date(userInfo.restrictedUntil) > new Date();
 
   if (isLoading) {
     return (
@@ -416,7 +471,7 @@ export default function MyPage() {
           <p className="text-gray-500">사용자 정보를 불러오는 중...</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (!userInfo) {
@@ -428,13 +483,16 @@ export default function MyPage() {
             <CardDescription>사용자 정보를 불러올 수 없습니다.</CardDescription>
           </CardHeader>
           <CardContent className="text-center">
-            <Button onClick={() => router.push("/")} className="bg-[#86A9FF] hover:bg-[#6487DB]">
+            <Button
+              onClick={() => router.push("/")}
+              className="bg-[#86A9FF] hover:bg-[#6487DB]"
+            >
               홈으로 돌아가기
             </Button>
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
@@ -449,7 +507,11 @@ export default function MyPage() {
           }}
         >
           <div className="bg-white dark:bg-gray-800 rounded-full p-3 shadow-lg border">
-            <RefreshCw className={`h-6 w-6 text-[#86A9FF] ${isRefreshing ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`h-6 w-6 text-[#86A9FF] ${
+                isRefreshing ? "animate-spin" : ""
+              }`}
+            />
           </div>
         </div>
       )}
@@ -465,7 +527,9 @@ export default function MyPage() {
           {/* 헤더 */}
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-[#6487DB] dark:text-[#86A9FF] mb-2">마이페이지</h1>
+              <h1 className="text-3xl font-bold text-[#6487DB] dark:text-[#86A9FF] mb-2">
+                마이페이지
+              </h1>
               <p className="text-gray-600">내 정보와 예약 현황을 확인하세요</p>
             </div>
             <Button
@@ -475,8 +539,14 @@ export default function MyPage() {
               disabled={refreshCooldown > 0}
               className="border-[#86A9FF] text-[#6487DB] hover:bg-[#EDF2FF] dark:border-[#6487DB] dark:text-[#86A9FF] dark:hover:bg-gray-700"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${refreshCooldown > 0 ? "animate-spin" : ""}`} />
-              {refreshCooldown > 0 ? `새로고침 (${refreshCooldown}초)` : "새로고침"}
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${
+                  refreshCooldown > 0 ? "animate-spin" : ""
+                }`}
+              />
+              {refreshCooldown > 0
+                ? `새로고침 (${refreshCooldown}초)`
+                : "새로고침"}
             </Button>
           </div>
 
@@ -521,7 +591,9 @@ export default function MyPage() {
                     <User className="h-4 w-4 text-gray-500" />
                     <span className="text-sm text-gray-500">성별</span>
                   </div>
-                  <p className="font-medium">{userInfo.gender === "MALE" ? "남성" : "여성"}</p>
+                  <p className="font-medium">
+                    {userInfo.gender === "MALE" ? "남성" : "여성"}
+                  </p>
                 </div>
               </div>
 
@@ -530,13 +602,18 @@ export default function MyPage() {
                 <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/20 dark:border-red-800">
                   <div className="flex items-center gap-2 mb-2">
                     <AlertCircle className="h-5 w-5 text-red-600" />
-                    <span className="font-medium text-red-800 dark:text-red-400">서비스 이용 제한</span>
+                    <span className="font-medium text-red-800 dark:text-red-400">
+                      서비스 이용 제한
+                    </span>
                   </div>
                   <p className="text-sm text-red-700 dark:text-red-400 mb-1">
-                    제한 해제: {new Date(userInfo.restrictedUntil!).toLocaleString()}
+                    제한 해제:{" "}
+                    {new Date(userInfo.restrictedUntil!).toLocaleString()}
                   </p>
                   {userInfo.restrictionReason && (
-                    <p className="text-sm text-red-700 dark:text-red-400">사유: {userInfo.restrictionReason}</p>
+                    <p className="text-sm text-red-700 dark:text-red-400">
+                      사유: {userInfo.restrictionReason}
+                    </p>
                   )}
                 </div>
               )}
@@ -552,13 +629,20 @@ export default function MyPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {!(userInfo.remainingTime === "00:00:00" || !userInfo.remainingTime) ? (
+              {!(
+                userInfo.remainingTime === "00:00:00" || !userInfo.remainingTime
+              ) ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-lg">{userInfo.machineLabel}</p>
+                      <p className="font-medium text-lg">
+                        {userInfo.machineLabel}
+                      </p>
                       <p className="text-sm text-gray-500">
-                        예약 시작: {userInfo.startTime ? new Date(userInfo.startTime).toLocaleString() : "정보 없음"}
+                        예약 시작:{" "}
+                        {userInfo.startTime
+                          ? new Date(userInfo.startTime).toLocaleString()
+                          : "정보 없음"}
                       </p>
                     </div>
                     {userInfo.status && getStatusBadge(userInfo.status)}
@@ -592,29 +676,36 @@ export default function MyPage() {
 
                   {remainingTime > 0 && (
                     <div
-                      className={`p-4 rounded-lg border ${userInfo.status === "RUNNING"
-                        ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
-                        : "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
-                        }`}
+                      className={`p-4 rounded-lg border ${
+                        userInfo.status === "RUNNING"
+                          ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
+                          : "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
+                      }`}
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <Clock
-                          className={`h-5 w-5 ${userInfo.status === "RUNNING" ? "text-green-600" : "text-blue-600"}`}
+                          className={`h-5 w-5 ${
+                            userInfo.status === "RUNNING"
+                              ? "text-green-600"
+                              : "text-blue-600"
+                          }`}
                         />
                         <span
-                          className={`font-medium ${userInfo.status === "RUNNING"
-                            ? "text-green-800 dark:text-green-400"
-                            : "text-blue-800 dark:text-blue-400"
-                            }`}
+                          className={`font-medium ${
+                            userInfo.status === "RUNNING"
+                              ? "text-green-800 dark:text-green-400"
+                              : "text-blue-800 dark:text-blue-400"
+                          }`}
                         >
                           {getRemainingTimeLabel(userInfo.status || "")}
                         </span>
                       </div>
                       <p
-                        className={`text-2xl font-bold ${userInfo.status === "RUNNING"
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-blue-600 dark:text-blue-400"
-                          }`}
+                        className={`text-2xl font-bold ${
+                          userInfo.status === "RUNNING"
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-blue-600 dark:text-blue-400"
+                        }`}
                       >
                         {formatTime(remainingTime)}
                       </p>
@@ -646,13 +737,17 @@ export default function MyPage() {
                         <Play className="h-4 w-4 mr-2" />
                         {actionLoading
                           ? "처리 중..."
-                          : userInfo.machineLabel?.toLowerCase().includes("dryer")
-                            ? "건조 시작"
-                            : "세탁 시작"}
+                          : userInfo.machineLabel
+                              ?.toLowerCase()
+                              .includes("dryer")
+                          ? "건조 시작"
+                          : "세탁 시작"}
                       </Button>
                     )}
 
-                    {["WAITING", "RESERVED", "CONFIRMED"].includes(userInfo.status || "") && (
+                    {["WAITING", "RESERVED", "CONFIRMED"].includes(
+                      userInfo.status || ""
+                    ) && (
                       <Button
                         variant="destructive"
                         onClick={handleCancelReservation}
@@ -669,7 +764,10 @@ export default function MyPage() {
                 <div className="text-center py-8">
                   <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-4" />
                   <p className="text-gray-500 mb-4">현재 예약이 없습니다</p>
-                  <Button onClick={() => router.push("/")} className="bg-[#86A9FF] hover:bg-[#6487DB]">
+                  <Button
+                    onClick={() => router.push("/")}
+                    className="bg-[#86A9FF] hover:bg-[#6487DB]"
+                  >
                     예약하러 가기
                   </Button>
                 </div>
@@ -679,12 +777,16 @@ export default function MyPage() {
 
           {/* 액션 버튼 */}
           <div className="flex gap-4">
-            <Button variant="outline" onClick={() => router.push("/")} className="flex-1">
+            <Button
+              variant="outline"
+              onClick={() => router.push("/")}
+              className="flex-1"
+            >
               홈으로 돌아가기
             </Button>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }
