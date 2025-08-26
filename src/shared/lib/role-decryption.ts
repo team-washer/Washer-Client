@@ -1,9 +1,13 @@
 import { privateDecrypt } from "crypto";
 import { UserRole } from "./auth-utils";
 
-export default async function RoleDecryption(encryptedRole: string) {
+interface Props {
+  role: string;
+}
+
+export default async function RoleDecryption({ role }: Props) {
   return privateDecrypt(
     process.env.ROLE_PRIVATE_KEY ?? "",
-    Buffer.from(encryptedRole, "base64")
+    Buffer.from(role, "base64")
   ).toString() as UserRole;
 }

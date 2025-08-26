@@ -64,7 +64,6 @@ import {
 } from "@/shared/lib/api-client";
 
 import { usePullToRefresh } from "@/shared/hooks/use-pull-to-refresh";
-import RoleDecryption from "@/shared/lib/role-decryption";
 import axios from "axios";
 
 // 시간을 포맷팅하는 함수 (초 -> HH:MM:SS)

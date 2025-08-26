@@ -7,7 +7,9 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const encryptedRole = cookieStore.get("role")?.value;
 
-    const role = await RoleDecryption(encryptedRole ?? "");
+    const role = await RoleDecryption({
+      role: encryptedRole ?? "",
+    });
 
     return NextResponse.json({ role });
   } catch (err) {
