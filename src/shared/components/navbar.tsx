@@ -39,23 +39,16 @@ export function Navbar() {
     pathname === "/forgot-password";
 
   useEffect(() => {
-    // 관리자 여부 확인
-    const isAdmin = async () => {
-      const { data } = await axios.get(`/api/auth/role`);
-
-      if (data.role === "ROLE_ADMIN") {
-        setIsAdmin(true);
+    const checkAdminRole = async () => {
+      try {
+        const { data } = await axios.get(`/api/auth/role`);
+        setIsAdmin(data.role === "ROLE_ADMIN");
+      } catch (error) {
+        console.error("Failed to fetch role:", error);
+        setIsAdmin(false);
       }
     };
 
-    if (!isAuthPage) {
-      isAdmin();
-      setIsAuthenticated(true);
-    } else if (isAuthPage) {
-      setIsAuthenticated(false);
-    }
-
-    fetchMyInfo();
     const fetchUserInfo = async () => {
       try {
         const userInfo = await userApi.getMyInfo();
@@ -65,6 +58,15 @@ export function Navbar() {
         setUser(null);
       }
     };
+
+    if (!isAuthPage) {
+      checkAdminRole();
+      setIsAuthenticated(true);
+    } else if (isAuthPage) {
+      setIsAuthenticated(false);
+    }
+
+    fetchMyInfo();
     fetchUserInfo();
   }, [pathname, fetchMyInfo, isAuthPage]);
 

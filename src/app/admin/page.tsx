@@ -1,26 +1,31 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/shared/components/ui/button';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/shared/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/shared/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
+} from "@/shared/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/shared/components/ui/tabs";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/shared/components/ui/select';
-import { Badge } from '@/shared/components/ui/badge';
+} from "@/shared/components/ui/select";
+import { Badge } from "@/shared/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +33,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/shared/components/ui/dialog';
+} from "@/shared/components/ui/dialog";
 import {
   RefreshCw,
   Settings,
@@ -43,10 +48,10 @@ import {
   BarChart3,
   Filter,
   Clock,
-} from 'lucide-react';
-import { useReservationStore } from '@/shared/lib/reservation-store';
-import { useToast } from '@/shared/components/ui/use-toast';
-import { securityManager } from '@/shared/lib/auth-utils';
+} from "lucide-react";
+import { useReservationStore } from "@/shared/lib/reservation-store";
+import { useToast } from "@/shared/components/ui/use-toast";
+import { securityManager } from "@/shared/lib/auth-utils";
 import {
   machineApi,
   reservationApi,
@@ -56,28 +61,31 @@ import {
   type AdminReservationInfo,
   type AdminUserInfo,
   parseTimeStringToSeconds,
-} from '@/shared/lib/api-client';
+} from "@/shared/lib/api-client";
 
-import { usePullToRefresh } from '@/shared/hooks/use-pull-to-refresh';
-import { RoleDecryption } from '@/shared/lib/role-decryption';
+import { usePullToRefresh } from "@/shared/hooks/use-pull-to-refresh";
+import RoleDecryption from "@/shared/lib/role-decryption";
+import axios from "axios";
 
 // 시간을 포맷팅하는 함수 (초 -> HH:MM:SS)
 const formatSecondsToTime = (seconds: number): string => {
-  if (seconds <= 0) return '00:00:00';
+  if (seconds <= 0) return "00:00:00";
 
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const remainingSeconds = seconds % 60;
 
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  return `${hours.toString().padStart(2, "0")}:${minutes
+    .toString()
+    .padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
 };
 
 export default function AdminPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>();
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState("overview");
   const [refreshing, setRefreshing] = useState(false);
   const [refreshCooldown, setRefreshCooldown] = useState(0); // 새로고침 쿨타임
 
@@ -92,40 +100,40 @@ export default function AdminPage() {
   const [adminUsers, setAdminUsers] = useState<AdminUserInfo[]>([]);
 
   // 필터 상태
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [reportStatusFilter, setReportStatusFilter] = useState<
-    'ALL' | 'PENDING' | 'IN_PROGRESS' | 'RESOLVED'
-  >('ALL');
+    "ALL" | "PENDING" | "IN_PROGRESS" | "RESOLVED"
+  >("ALL");
   const [deviceTypeFilter, setDeviceTypeFilter] = useState<
-    'ALL' | 'WASHER' | 'DRYER'
-  >('ALL');
-  const [floorFilter, setFloorFilter] = useState<'ALL' | '3' | '4' | '5'>(
-    'ALL'
+    "ALL" | "WASHER" | "DRYER"
+  >("ALL");
+  const [floorFilter, setFloorFilter] = useState<"ALL" | "3" | "4" | "5">(
+    "ALL"
   );
   const [reservationTypeFilter, setReservationTypeFilter] = useState<
-    'ALL' | 'WASHER' | 'DRYER'
-  >('ALL');
+    "ALL" | "WASHER" | "DRYER"
+  >("ALL");
   const [userGenderFilter, setUserGenderFilter] = useState<
-    'ALL' | 'MALE' | 'FEMALE'
-  >('ALL');
+    "ALL" | "MALE" | "FEMALE"
+  >("ALL");
   const [userFloorFilter, setUserFloorFilter] = useState<
-    'ALL' | '3' | '4' | '5'
-  >('ALL');
+    "ALL" | "3" | "4" | "5"
+  >("ALL");
 
   // 다이얼로그 상태
   const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
   const [selectedReportStatus, setSelectedReportStatus] = useState<
-    'PENDING' | 'IN_PROGRESS' | 'RESOLVED'
-  >('PENDING');
+    "PENDING" | "IN_PROGRESS" | "RESOLVED"
+  >("PENDING");
   const [isReportStatusDialogOpen, setIsReportStatusDialogOpen] =
     useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [restrictionDuration, setRestrictionDuration] = useState<
-    '1시간' | '1일' | '7일'
-  >('1시간');
+    "1시간" | "1일" | "7일"
+  >("1시간");
   const [isRestrictDialogOpen, setIsRestrictDialogOpen] = useState(false);
   const [isUnrestrictDialogOpen, setIsUnrestrictDialogOpen] = useState(false);
-  const [restrictionReason, setRestrictionReason] = useState('');
+  const [restrictionReason, setRestrictionReason] = useState("");
 
   const { machines, fetchMachines } = useReservationStore();
 
@@ -134,9 +142,9 @@ export default function AdminPage() {
     onRefresh: async () => {
       if (refreshCooldown > 0) {
         toast({
-          title: '새로고침 대기',
+          title: "새로고침 대기",
           description: `${refreshCooldown}초 후에 다시 시도해주세요.`,
-          variant: 'destructive',
+          variant: "destructive",
         });
         return;
       }
@@ -148,13 +156,15 @@ export default function AdminPage() {
   // 실시간 카운트다운을 위한 useEffect
   useEffect(() => {
     const interval = setInterval(() => {
-      setAdminReservations(prevReservations =>
-        prevReservations.map(reservation => {
+      setAdminReservations((prevReservations) =>
+        prevReservations.map((reservation) => {
           if (reservation.remainingSeconds > 0) {
             return {
               ...reservation,
               remainingSeconds: reservation.remainingSeconds - 1,
-              remainingTime: formatSecondsToTime(reservation.remainingSeconds - 1)
+              remainingTime: formatSecondsToTime(
+                reservation.remainingSeconds - 1
+              ),
             };
           }
           return reservation;
@@ -162,8 +172,8 @@ export default function AdminPage() {
       );
 
       // 정지된 사용자의 남은 시간도 업데이트
-      setAdminUsers(prevUsers =>
-        prevUsers.map(user => {
+      setAdminUsers((prevUsers) =>
+        prevUsers.map((user) => {
           if (user.restrictedUntil) {
             const now = new Date();
             const restrictedUntil = new Date(user.restrictedUntil);
@@ -174,7 +184,7 @@ export default function AdminPage() {
               return {
                 ...user,
                 restrictedUntil: null,
-                restrictionReason: null
+                restrictionReason: null,
               };
             }
           }
@@ -187,30 +197,34 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    const isAdminUser = RoleDecryption() === 'ROLE_ADMIN';
-    setIsAdmin(isAdminUser);
+    const checkAdminRole = async () => {
+      const { data } = await axios.get("/api/auth/role");
+      setIsAdmin(data.role === "ROLE_ADMIN");
+    };
+
+    checkAdminRole();
 
     // 보안 검증
     if (!securityManager.validateTokenAndRole()) {
-      console.warn('⚠️ Security validation failed');
+      console.warn("⚠️ Security validation failed");
       toast({
-        title: '보안 오류',
-        description: '인증 정보에 문제가 있습니다. 다시 로그인해주세요.',
-        variant: 'destructive',
+        title: "보안 오류",
+        description: "인증 정보에 문제가 있습니다. 다시 로그인해주세요.",
+        variant: "destructive",
       });
-      router.push('/login');
+      router.push("/login");
       return;
     }
 
     // 변조 감지
     if (securityManager.detectTampering()) {
-      console.warn('⚠️ Tampering detected');
+      console.warn("⚠️ Tampering detected");
       toast({
-        title: '보안 경고',
-        description: '권한 정보가 변조되었습니다. 다시 로그인해주세요.',
-        variant: 'destructive',
+        title: "보안 경고",
+        description: "권한 정보가 변조되었습니다. 다시 로그인해주세요.",
+        variant: "destructive",
       });
-      router.push('/login');
+      router.push("/login");
       return;
     }
 
@@ -219,13 +233,15 @@ export default function AdminPage() {
 
   // 관리자가 아닌 경우 리다이렉트 처리
   useEffect(() => {
+    if (isAdmin === undefined) return;
+
     if (!isLoading && !isAdmin) {
       toast({
-        title: '접근 제한',
-        description: '관리자만 접근할 수 있는 페이지입니다.',
-        variant: 'destructive',
+        title: "접근 제한",
+        description: "관리자만 접근할 수 있는 페이지입니다.",
+        variant: "destructive",
       });
-      router.push('/');
+      router.push("/");
     }
   }, [isLoading, isAdmin, router, toast]);
 
@@ -257,7 +273,7 @@ export default function AdminPage() {
         fetchMachines(),
       ]);
     } catch (error) {
-      console.error('Failed to load admin data:', error);
+      console.error("Failed to load admin data:", error);
     }
   };
 
@@ -267,7 +283,7 @@ export default function AdminPage() {
       const response = await machineApi.getReports();
       setReports(response.data);
     } catch (error) {
-      console.error('Failed to load reports:', error);
+      console.error("Failed to load reports:", error);
     }
   };
 
@@ -277,7 +293,7 @@ export default function AdminPage() {
       const response = await machineApi.getOutOfOrderDevices();
       setOutOfOrderDevices(response.data);
     } catch (error) {
-      console.error('Failed to load out of order devices:', error);
+      console.error("Failed to load out of order devices:", error);
     }
   };
 
@@ -293,7 +309,7 @@ export default function AdminPage() {
       }));
       setAdminReservations(processedReservations);
     } catch (error) {
-      console.error('Failed to load admin reservations:', error);
+      console.error("Failed to load admin reservations:", error);
     }
   };
 
@@ -304,7 +320,7 @@ export default function AdminPage() {
 
       setAdminUsers(response.data);
     } catch (error) {
-      console.error('Failed to load admin users:', error);
+      console.error("Failed to load admin users:", error);
     }
   };
 
@@ -312,9 +328,9 @@ export default function AdminPage() {
   const handleRefreshData = async () => {
     if (refreshCooldown > 0) {
       toast({
-        title: '새로고침 대기',
+        title: "새로고침 대기",
         description: `${refreshCooldown}초 후에 다시 시도해주세요.`,
-        variant: 'destructive',
+        variant: "destructive",
       });
       return;
     }
@@ -325,14 +341,14 @@ export default function AdminPage() {
     try {
       await loadAllData();
       toast({
-        title: '새로고침 완료',
-        description: '모든 데이터가 새로고침되었습니다.',
+        title: "새로고침 완료",
+        description: "모든 데이터가 새로고침되었습니다.",
       });
     } catch (error) {
       toast({
-        title: '새로고침 실패',
-        description: '데이터를 새로고침하는 중 오류가 발생했습니다.',
-        variant: 'destructive',
+        title: "새로고침 실패",
+        description: "데이터를 새로고침하는 중 오류가 발생했습니다.",
+        variant: "destructive",
       });
     } finally {
       setRefreshing(false);
@@ -349,16 +365,16 @@ export default function AdminPage() {
         selectedReportStatus
       );
       toast({
-        title: '상태 변경 완료',
-        description: '신고 상태가 성공적으로 변경되었습니다.',
+        title: "상태 변경 완료",
+        description: "신고 상태가 성공적으로 변경되었습니다.",
       });
       await loadReports();
-      console.log('Report status updated:', response.data);
+      console.log("Report status updated:", response.data);
     } catch (error) {
       toast({
-        title: '상태 변경 실패',
-        description: error.message || '상태 변경 중 오류가 발생했습니다.',
-        variant: 'destructive',
+        title: "상태 변경 실패",
+        description: error.message || "상태 변경 중 오류가 발생했습니다.",
+        variant: "destructive",
       });
     } finally {
       setIsReportStatusDialogOpen(false);
@@ -377,17 +393,18 @@ export default function AdminPage() {
         !currentStatus
       );
       toast({
-        title: !currentStatus ? '기기 고장 등록' : '기기 수리 완료',
-        description: `${deviceName} 기기가 ${!currentStatus ? '고장 상태로 등록' : '수리 완료 상태로 변경'
-          }되었습니다.`,
+        title: !currentStatus ? "기기 고장 등록" : "기기 수리 완료",
+        description: `${deviceName} 기기가 ${
+          !currentStatus ? "고장 상태로 등록" : "수리 완료 상태로 변경"
+        }되었습니다.`,
       });
       await loadOutOfOrderDevices();
       await fetchMachines(); // 메인 기기 목록도 새로고침
     } catch (error) {
       toast({
-        title: '상태 변경 실패',
-        description: error.message || '기기 상태 변경 중 오류가 발생했습니다.',
-        variant: 'destructive',
+        title: "상태 변경 실패",
+        description: error.message || "기기 상태 변경 중 오류가 발생했습니다.",
+        variant: "destructive",
       });
     }
   };
@@ -399,15 +416,15 @@ export default function AdminPage() {
         reservationId
       );
       toast({
-        title: '예약 삭제 완료',
-        description: '예약이 성공적으로 삭제되었습니다.',
+        title: "예약 삭제 완료",
+        description: "예약이 성공적으로 삭제되었습니다.",
       });
       await loadAdminReservations();
     } catch (error) {
       toast({
-        title: '예약 삭제 실패',
-        description: error.message || '예약 삭제 중 오류가 발생했습니다.',
-        variant: 'destructive',
+        title: "예약 삭제 실패",
+        description: error.message || "예약 삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
       });
     }
   };
@@ -416,9 +433,9 @@ export default function AdminPage() {
   const handleRestrictUser = async () => {
     if (!selectedUserId || !restrictionReason.trim()) {
       toast({
-        title: '입력 오류',
-        description: '정지 이유를 입력해주세요.',
-        variant: 'destructive',
+        title: "입력 오류",
+        description: "정지 이유를 입력해주세요.",
+        variant: "destructive",
       });
       return;
     }
@@ -430,22 +447,22 @@ export default function AdminPage() {
       });
 
       toast({
-        title: '사용자 정지 완료',
+        title: "사용자 정지 완료",
         description: `사용자가 ${restrictionDuration} 동안 정지되었습니다.`,
       });
       await loadAdminUsers();
-      console.log('User restricted:', response.data);
+      console.log("User restricted:", response.data);
     } catch (error) {
       console.error(`❌ Restrict user error:`, error);
       toast({
-        title: '정지 실패',
-        description: error.message || '사용자 정지 중 오류가 발생했습니다.',
-        variant: 'destructive',
+        title: "정지 실패",
+        description: error.message || "사용자 정지 중 오류가 발생했습니다.",
+        variant: "destructive",
       });
     } finally {
       setIsRestrictDialogOpen(false);
       setSelectedUserId(null);
-      setRestrictionReason('');
+      setRestrictionReason("");
     }
   };
 
@@ -457,16 +474,16 @@ export default function AdminPage() {
       const response = await userApi.unrestrictUser(selectedUserId);
 
       toast({
-        title: '정지 해제 완료',
-        description: '사용자의 정지가 해제되었습니다.',
+        title: "정지 해제 완료",
+        description: "사용자의 정지가 해제되었습니다.",
       });
       await loadAdminUsers();
-      console.log('User unrestricted:', response.data);
+      console.log("User unrestricted:", response.data);
     } catch (error) {
       toast({
-        title: '정지 해제 실패',
-        description: error.message || '정지 해제 중 오류가 발생했습니다.',
-        variant: 'destructive',
+        title: "정지 해제 실패",
+        description: error.message || "정지 해제 중 오류가 발생했습니다.",
+        variant: "destructive",
       });
     } finally {
       setIsUnrestrictDialogOpen(false);
@@ -488,7 +505,7 @@ export default function AdminPage() {
     const endTime = new Date(restrictedUntil);
     const diffMs = endTime.getTime() - now.getTime();
 
-    if (diffMs <= 0) return '정지 해제됨';
+    if (diffMs <= 0) return "정지 해제됨";
 
     const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     const hours = Math.floor(
@@ -514,7 +531,7 @@ export default function AdminPage() {
       report.description.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus =
-      reportStatusFilter === 'ALL' || report.status === reportStatusFilter;
+      reportStatusFilter === "ALL" || report.status === reportStatusFilter;
 
     return matchesSearch && matchesStatus;
   });
@@ -524,9 +541,9 @@ export default function AdminPage() {
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
     const matchesType =
-      deviceTypeFilter === 'ALL' || device.type === deviceTypeFilter;
+      deviceTypeFilter === "ALL" || device.type === deviceTypeFilter;
     const matchesFloor =
-      floorFilter === 'ALL' || floorFilter.includes(device.floor);
+      floorFilter === "ALL" || floorFilter.includes(device.floor);
 
     return matchesSearch && matchesType && matchesFloor;
   });
@@ -535,11 +552,11 @@ export default function AdminPage() {
     const matchesSearch = reservation.machineLabel
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
-    const machineType = reservation.machineLabel.includes('Washer')
-      ? 'WASHER'
-      : 'DRYER';
+    const machineType = reservation.machineLabel.includes("Washer")
+      ? "WASHER"
+      : "DRYER";
     const matchesType =
-      reservationTypeFilter === 'ALL' || machineType === reservationTypeFilter;
+      reservationTypeFilter === "ALL" || machineType === reservationTypeFilter;
 
     return matchesSearch && matchesType;
   });
@@ -551,22 +568,22 @@ export default function AdminPage() {
       user.roomName.toLowerCase().includes(searchTerm.toLowerCase());
 
     // 성별 필터링 수정 - MALE/FEMALE을 MALE/female로 변환
-    const userGender = user.gender as 'MALE' | 'FEMALE';
+    const userGender = user.gender as "MALE" | "FEMALE";
     const matchesGender =
-      userGenderFilter === 'ALL' || userGender === userGenderFilter;
+      userGenderFilter === "ALL" || userGender === userGenderFilter;
     const roomFloor = user.roomName.charAt(0);
     const matchesFloor =
-      userFloorFilter === 'ALL' || roomFloor === userFloorFilter;
+      userFloorFilter === "ALL" || roomFloor === userFloorFilter;
 
     return matchesSearch && matchesGender && matchesFloor;
   });
 
   if (isLoading) {
     return (
-      <div className='flex items-center justify-center min-h-screen'>
-        <div className='text-center'>
-          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[#86A9FF] mx-auto mb-2'></div>
-          <p className='text-gray-500'>로딩 중...</p>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#86A9FF] mx-auto mb-2"></div>
+          <p className="text-gray-500">로딩 중...</p>
         </div>
       </div>
     );
@@ -574,18 +591,18 @@ export default function AdminPage() {
 
   if (!isAdmin) {
     return (
-      <div className='flex items-center justify-center min-h-screen'>
-        <Card className='w-full max-w-md'>
-          <CardHeader className='text-center'>
-            <CardTitle className='text-red-600'>접근 제한</CardTitle>
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-red-600">접근 제한</CardTitle>
             <CardDescription>
               관리자만 접근할 수 있는 페이지입니다.
             </CardDescription>
           </CardHeader>
-          <CardContent className='text-center'>
+          <CardContent className="text-center">
             <Button
-              onClick={() => router.push('/')}
-              className='bg-[#86A9FF] hover:bg-[#6487DB]'
+              onClick={() => router.push("/")}
+              className="bg-[#86A9FF] hover:bg-[#6487DB]"
             >
               홈으로 돌아가기
             </Button>
@@ -596,146 +613,147 @@ export default function AdminPage() {
   }
 
   return (
-    <div className='min-h-screen relative bg-gray-50'>
+    <div className="min-h-screen relative bg-gray-50">
       {/* Pull-to-refresh 인디케이터 */}
       {(isPulling || pullRefreshing) && (
-        <div className='fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-white dark:bg-gray-800 rounded-full p-3 shadow-lg border'>
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-white dark:bg-gray-800 rounded-full p-3 shadow-lg border">
           <RefreshCw
-            className={`h-5 w-5 text-[#6487DB] ${pullRefreshing ? 'animate-spin' : ''
-              }`}
+            className={`h-5 w-5 text-[#6487DB] ${
+              pullRefreshing ? "animate-spin" : ""
+            }`}
           />
         </div>
       )}
 
-      <div className='container mx-auto py-6 px-4'>
+      <div className="container mx-auto py-6 px-4">
         {/* 헤더 */}
-        <div className='flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6'>
-          <h1 className='text-3xl font-bold text-[#6487DB] dark:text-[#86A9FF]'>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+          <h1 className="text-3xl font-bold text-[#6487DB] dark:text-[#86A9FF]">
             관리자 페이지
           </h1>
           <Button
-            variant='outline'
-            size='sm'
+            variant="outline"
+            size="sm"
             onClick={handleRefreshData}
             disabled={refreshing || refreshCooldown > 0}
-            className='border-[#86A9FF] text-[#6487DB] hover:bg-[#EDF2FF]'
+            className="border-[#86A9FF] text-[#6487DB] hover:bg-[#EDF2FF]"
           >
             <RefreshCw
-              className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`}
+              className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`}
             />
             {refreshing
-              ? '새로고침 중...'
+              ? "새로고침 중..."
               : refreshCooldown > 0
-                ? `새로고침 (${refreshCooldown}초)`
-                : '새로고침'}
+              ? `새로고침 (${refreshCooldown}초)`
+              : "새로고침"}
           </Button>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className='w-full'>
-          <TabsList className='grid w-full grid-cols-5 mb-6 bg-muted p-2 rounded-lg h-12'>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-5 mb-6 bg-muted p-2 rounded-lg h-12">
             <TabsTrigger
-              value='overview'
-              className='flex items-center gap-1 rounded-md h-8 text-xs px-2 py-1'
+              value="overview"
+              className="flex items-center gap-1 rounded-md h-8 text-xs px-2 py-1"
             >
-              <BarChart3 className='h-3 w-3' />
-              <span className='hidden sm:inline'>개요</span>
+              <BarChart3 className="h-3 w-3" />
+              <span className="hidden sm:inline">개요</span>
             </TabsTrigger>
             <TabsTrigger
-              value='devices'
-              className='flex items-center gap-1 rounded-md h-8 text-xs px-2 py-1'
+              value="devices"
+              className="flex items-center gap-1 rounded-md h-8 text-xs px-2 py-1"
             >
-              <Settings className='h-3 w-3' />
-              <span className='hidden sm:inline'>기기 관리</span>
+              <Settings className="h-3 w-3" />
+              <span className="hidden sm:inline">기기 관리</span>
             </TabsTrigger>
             <TabsTrigger
-              value='reservations'
-              className='flex items-center gap-1 rounded-md h-8 text-xs px-2 py-1'
+              value="reservations"
+              className="flex items-center gap-1 rounded-md h-8 text-xs px-2 py-1"
             >
-              <Calendar className='h-3 w-3' />
-              <span className='hidden sm:inline'>예약 관리</span>
+              <Calendar className="h-3 w-3" />
+              <span className="hidden sm:inline">예약 관리</span>
             </TabsTrigger>
             <TabsTrigger
-              value='reports'
-              className='flex items-center gap-1 rounded-md h-8 text-xs px-2 py-1'
+              value="reports"
+              className="flex items-center gap-1 rounded-md h-8 text-xs px-2 py-1"
             >
-              <AlertTriangle className='h-3 w-3' />
-              <span className='hidden sm:inline'>신고 관리</span>
+              <AlertTriangle className="h-3 w-3" />
+              <span className="hidden sm:inline">신고 관리</span>
             </TabsTrigger>
             <TabsTrigger
-              value='users'
-              className='flex items-center gap-1 rounded-md h-8 text-xs px-2 py-1'
+              value="users"
+              className="flex items-center gap-1 rounded-md h-8 text-xs px-2 py-1"
             >
-              <Users className='h-3 w-3' />
-              <span className='hidden sm:inline'>사용자 관리</span>
+              <Users className="h-3 w-3" />
+              <span className="hidden sm:inline">사용자 관리</span>
             </TabsTrigger>
           </TabsList>
 
           {/* 개요 탭 */}
-          <TabsContent value='overview' className='space-y-6'>
-            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card>
-                <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                  <CardTitle className='text-sm font-medium'>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
                     총 기기 수
                   </CardTitle>
-                  <Settings className='h-4 w-4 text-muted-foreground' />
+                  <Settings className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className='text-2xl font-bold'>{machines.length}</div>
-                  <p className='text-xs text-muted-foreground'>
-                    세탁기 {machines.filter((m) => m.type === 'washing').length}
-                    대, 건조기{' '}
-                    {machines.filter((m) => m.type === 'dryer').length}대
+                  <div className="text-2xl font-bold">{machines.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    세탁기 {machines.filter((m) => m.type === "washing").length}
+                    대, 건조기{" "}
+                    {machines.filter((m) => m.type === "dryer").length}대
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                  <CardTitle className='text-sm font-medium'>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
                     활성 예약
                   </CardTitle>
-                  <Calendar className='h-4 w-4 text-muted-foreground' />
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className='text-2xl font-bold'>
+                  <div className="text-2xl font-bold">
                     {adminReservations.length}
                   </div>
-                  <p className='text-xs text-muted-foreground'>
+                  <p className="text-xs text-muted-foreground">
                     현재 진행 중인 예약
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                  <CardTitle className='text-sm font-medium'>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
                     고장 신고
                   </CardTitle>
-                  <AlertTriangle className='h-4 w-4 text-muted-foreground' />
+                  <AlertTriangle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className='text-2xl font-bold'>
-                    {reports.filter((r) => r.status === 'PENDING').length}
+                  <div className="text-2xl font-bold">
+                    {reports.filter((r) => r.status === "PENDING").length}
                   </div>
-                  <p className='text-xs text-muted-foreground'>
+                  <p className="text-xs text-muted-foreground">
                     총 {reports.length}건 중 대기 중
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                  <CardTitle className='text-sm font-medium'>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
                     고장 기기
                   </CardTitle>
-                  <XCircle className='h-4 w-4 text-muted-foreground' />
+                  <XCircle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className='text-2xl font-bold'>
+                  <div className="text-2xl font-bold">
                     {outOfOrderDevices.filter((d) => d.outOfOrder).length}
                   </div>
-                  <p className='text-xs text-muted-foreground'>
+                  <p className="text-xs text-muted-foreground">
                     수리가 필요한 기기
                   </p>
                 </CardContent>
@@ -743,45 +761,45 @@ export default function AdminPage() {
             </div>
 
             {/* 최근 활동 */}
-            <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle>최근 고장 신고</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className='space-y-3'>
+                  <div className="space-y-3">
                     {reports.slice(0, 5).map((report) => (
                       <div
                         key={report.reportId}
-                        className='flex items-center justify-between'
+                        className="flex items-center justify-between"
                       >
                         <div>
-                          <p className='text-sm font-medium'>
+                          <p className="text-sm font-medium">
                             {report.machineName}
                           </p>
-                          <p className='text-xs text-gray-500'>
+                          <p className="text-xs text-gray-500">
                             {report.reportedByUserName}
                           </p>
                         </div>
                         <Badge
                           variant={
-                            report.status === 'PENDING'
-                              ? 'destructive'
-                              : report.status === 'IN_PROGRESS'
-                                ? 'default'
-                                : 'secondary'
+                            report.status === "PENDING"
+                              ? "destructive"
+                              : report.status === "IN_PROGRESS"
+                              ? "default"
+                              : "secondary"
                           }
                         >
-                          {report.status === 'PENDING'
-                            ? '대기'
-                            : report.status === 'IN_PROGRESS'
-                              ? '처리중'
-                              : '완료'}
+                          {report.status === "PENDING"
+                            ? "대기"
+                            : report.status === "IN_PROGRESS"
+                            ? "처리중"
+                            : "완료"}
                         </Badge>
                       </div>
                     ))}
                     {reports.length === 0 && (
-                      <p className='text-sm text-gray-500 text-center py-4'>
+                      <p className="text-sm text-gray-500 text-center py-4">
                         신고가 없습니다.
                       </p>
                     )}
@@ -794,42 +812,48 @@ export default function AdminPage() {
                   <CardTitle>현재 활성 예약</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className='space-y-3'>
+                  <div className="space-y-3">
                     {adminReservations.slice(0, 5).map((reservation) => (
                       <div
                         key={reservation.reservationId}
-                        className='flex items-center justify-between'
+                        className="flex items-center justify-between"
                       >
                         <div>
-                          <p className='text-sm font-medium'>
+                          <p className="text-sm font-medium">
                             {reservation.machineLabel}
                           </p>
-                          <p className='text-xs text-gray-500'>
-                            남은 시간:{' '}
-                            <span className={`font-mono ${reservation.remainingSeconds <= 300 ? 'text-red-600 font-semibold' : ''}`}>
+                          <p className="text-xs text-gray-500">
+                            남은 시간:{" "}
+                            <span
+                              className={`font-mono ${
+                                reservation.remainingSeconds <= 300
+                                  ? "text-red-600 font-semibold"
+                                  : ""
+                              }`}
+                            >
                               {reservation.remainingTime}
                             </span>
                           </p>
                         </div>
                         <Badge
                           variant={
-                            reservation.status === 'WAITING'
-                              ? 'secondary'
-                              : reservation.status === 'RUNNING'
-                                ? 'default'
-                                : 'outline'
+                            reservation.status === "WAITING"
+                              ? "secondary"
+                              : reservation.status === "RUNNING"
+                              ? "default"
+                              : "outline"
                           }
                         >
-                          {reservation.status === 'WAITING'
-                            ? '대기'
-                            : reservation.status === 'RUNNING'
-                              ? '사용중'
-                              : reservation.status}
+                          {reservation.status === "WAITING"
+                            ? "대기"
+                            : reservation.status === "RUNNING"
+                            ? "사용중"
+                            : reservation.status}
                         </Badge>
                       </div>
                     ))}
                     {adminReservations.length === 0 && (
-                      <p className='text-sm text-gray-500 text-center py-4'>
+                      <p className="text-sm text-gray-500 text-center py-4">
                         활성 예약이 없습니다.
                       </p>
                     )}
@@ -840,66 +864,70 @@ export default function AdminPage() {
           </TabsContent>
 
           {/* 기기 관리 탭 */}
-          <TabsContent value='devices' className='space-y-6'>
+          <TabsContent value="devices" className="space-y-6">
             {/* 필터 */}
             <Card>
               <CardHeader>
-                <CardTitle className='flex items-center gap-2'>
-                  <Filter className='h-5 w-5' />
+                <CardTitle className="flex items-center gap-2">
+                  <Filter className="h-5 w-5" />
                   필터
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div>
-                    <Label htmlFor='device-search'>검색</Label>
+                    <Label htmlFor="device-search">검색</Label>
                     <Input
-                      id='device-search'
-                      placeholder='기기명 검색...'
+                      id="device-search"
+                      placeholder="기기명 검색..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
                   <div>
-                    <Label htmlFor='device-type'>기기 유형</Label>
+                    <Label htmlFor="device-type">기기 유형</Label>
                     <Select
                       value={deviceTypeFilter}
-                      onValueChange={(value) => setDeviceTypeFilter(value as 'ALL' | 'WASHER' | 'DRYER')}
+                      onValueChange={(value) =>
+                        setDeviceTypeFilter(value as "ALL" | "WASHER" | "DRYER")
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='ALL'>전체</SelectItem>
-                        <SelectItem value='WASHER'>세탁기</SelectItem>
-                        <SelectItem value='DRYER'>건조기</SelectItem>
+                        <SelectItem value="ALL">전체</SelectItem>
+                        <SelectItem value="WASHER">세탁기</SelectItem>
+                        <SelectItem value="DRYER">건조기</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor='device-floor'>층</Label>
+                    <Label htmlFor="device-floor">층</Label>
                     <Select
                       value={floorFilter}
-                      onValueChange={(value) => setFloorFilter(value as 'ALL' | '3' | '4' | '5')}
+                      onValueChange={(value) =>
+                        setFloorFilter(value as "ALL" | "3" | "4" | "5")
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='ALL'>전체</SelectItem>
-                        <SelectItem value='3'>3층</SelectItem>
-                        <SelectItem value='4'>4층</SelectItem>
-                        <SelectItem value='5'>5층</SelectItem>
+                        <SelectItem value="ALL">전체</SelectItem>
+                        <SelectItem value="3">3층</SelectItem>
+                        <SelectItem value="4">4층</SelectItem>
+                        <SelectItem value="5">5층</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className='flex items-end'>
+                  <div className="flex items-end">
                     <Button
-                      variant='outline'
+                      variant="outline"
                       onClick={() => {
-                        setSearchTerm('');
-                        setDeviceTypeFilter('ALL');
-                        setFloorFilter('ALL');
+                        setSearchTerm("");
+                        setDeviceTypeFilter("ALL");
+                        setFloorFilter("ALL");
                       }}
                     >
                       필터 초기화
@@ -918,37 +946,39 @@ export default function AdminPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className='space-y-4'>
+                <div className="space-y-4">
                   {filteredOutOfOrderDevices.map((device) => (
                     <div
                       key={device.name}
-                      className='flex items-center justify-between p-4 border rounded-lg'
+                      className="flex items-center justify-between p-4 border rounded-lg"
                     >
-                      <div className='flex items-center gap-4'>
+                      <div className="flex items-center gap-4">
                         <div
-                          className={`w-3 h-3 rounded-full ${device.outOfOrder ? 'bg-red-500' : 'bg-green-500'
-                            }`}
+                          className={`w-3 h-3 rounded-full ${
+                            device.outOfOrder ? "bg-red-500" : "bg-green-500"
+                          }`}
                         />
                         <div>
-                          <p className='font-medium'>{device.name}</p>
-                          <p className='text-sm text-gray-500'>
-                            {device.type === 'WASHER' ? '세탁기' : '건조기'} {device.floor}층
+                          <p className="font-medium">{device.name}</p>
+                          <p className="text-sm text-gray-500">
+                            {device.type === "WASHER" ? "세탁기" : "건조기"}{" "}
+                            {device.floor}층
                           </p>
                         </div>
                       </div>
-                      <div className='flex items-center gap-2'>
+                      <div className="flex items-center gap-2">
                         <Badge
                           variant={
-                            device.outOfOrder ? 'destructive' : 'secondary'
+                            device.outOfOrder ? "destructive" : "secondary"
                           }
                         >
-                          {device.outOfOrder ? '고장' : '정상'}
+                          {device.outOfOrder ? "고장" : "정상"}
                         </Badge>
                         <Button
                           variant={
-                            device.outOfOrder ? 'default' : 'destructive'
+                            device.outOfOrder ? "default" : "destructive"
                           }
-                          size='sm'
+                          size="sm"
                           onClick={() =>
                             handleToggleOutOfOrder(
                               device.name,
@@ -958,12 +988,12 @@ export default function AdminPage() {
                         >
                           {device.outOfOrder ? (
                             <>
-                              <Wrench className='h-4 w-4 mr-1' />
+                              <Wrench className="h-4 w-4 mr-1" />
                               수리 완료
                             </>
                           ) : (
                             <>
-                              <XCircle className='h-4 w-4 mr-1' />
+                              <XCircle className="h-4 w-4 mr-1" />
                               고장 등록
                             </>
                           )}
@@ -972,9 +1002,9 @@ export default function AdminPage() {
                     </div>
                   ))}
                   {filteredOutOfOrderDevices.length === 0 && (
-                    <div className='text-center py-8'>
-                      <Settings className='h-12 w-12 mx-auto text-gray-400 mb-2' />
-                      <p className='text-gray-500'>표시할 기기가 없습니다.</p>
+                    <div className="text-center py-8">
+                      <Settings className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+                      <p className="text-gray-500">표시할 기기가 없습니다.</p>
                     </div>
                   )}
                 </div>
@@ -983,50 +1013,52 @@ export default function AdminPage() {
           </TabsContent>
 
           {/* 예약 관리 탭 */}
-          <TabsContent value='reservations' className='space-y-6'>
+          <TabsContent value="reservations" className="space-y-6">
             {/* 필터 */}
             <Card>
               <CardHeader>
-                <CardTitle className='flex items-center gap-2'>
-                  <Filter className='h-5 w-5' />
+                <CardTitle className="flex items-center gap-2">
+                  <Filter className="h-5 w-5" />
                   필터
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor='reservation-search'>검색</Label>
+                    <Label htmlFor="reservation-search">검색</Label>
                     <Input
-                      id='reservation-search'
-                      placeholder='기기명 검색...'
+                      id="reservation-search"
+                      placeholder="기기명 검색..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
                   <div>
-                    <Label htmlFor='reservation-type'>기기 유형</Label>
+                    <Label htmlFor="reservation-type">기기 유형</Label>
                     <Select
                       value={reservationTypeFilter}
                       onValueChange={(value) =>
-                        setReservationTypeFilter(value as 'ALL' | 'WASHER' | 'DRYER')
+                        setReservationTypeFilter(
+                          value as "ALL" | "WASHER" | "DRYER"
+                        )
                       }
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='ALL'>전체</SelectItem>
-                        <SelectItem value='WASHER'>세탁기</SelectItem>
-                        <SelectItem value='DRYER'>건조기</SelectItem>
+                        <SelectItem value="ALL">전체</SelectItem>
+                        <SelectItem value="WASHER">세탁기</SelectItem>
+                        <SelectItem value="DRYER">건조기</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className='flex items-end'>
+                  <div className="flex items-end">
                     <Button
-                      variant='outline'
+                      variant="outline"
                       onClick={() => {
-                        setSearchTerm('');
-                        setReservationTypeFilter('ALL');
+                        setSearchTerm("");
+                        setReservationTypeFilter("ALL");
                       }}
                     >
                       필터 초기화
@@ -1045,67 +1077,66 @@ export default function AdminPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className='space-y-4'>
+                <div className="space-y-4">
                   {filteredAdminReservations.map((reservation) => (
                     <div
                       key={reservation.reservationId}
-                      className='flex items-center justify-between p-4 border rounded-lg'
+                      className="flex items-center justify-between p-4 border rounded-lg"
                     >
-                      <div className='flex items-center gap-4'>
-                        <div className='flex items-center justify-center w-10 h-10 bg-blue-100 rounded-full'>
-                          {reservation.machineLabel.includes('Washer')
-                            ? '🧺'
-                            : '🌪️'}
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-full">
+                          {reservation.machineLabel.includes("Washer")
+                            ? "🧺"
+                            : "🌪️"}
                         </div>
                         <div>
-                          <p className='font-medium'>
+                          <p className="font-medium">
                             {reservation.machineLabel}
                           </p>
-                          <p className='text-sm text-gray-500'>
-                            시작:{' '}
+                          <p className="text-sm text-gray-500">
+                            시작:{" "}
                             {new Date(reservation.startTime).toLocaleString()}
                           </p>
-                          <p className='text-sm text-gray-500'>
-                            남은 시간:{' '}
-                            {reservation.remainingTime}
+                          <p className="text-sm text-gray-500">
+                            남은 시간: {reservation.remainingTime}
                           </p>
                         </div>
                       </div>
-                      <div className='flex items-center gap-2'>
+                      <div className="flex items-center gap-2">
                         <Badge
                           variant={
-                            reservation.status === 'WAITING'
-                              ? 'secondary'
-                              : reservation.status === 'RUNNING'
-                                ? 'default'
-                                : 'outline'
+                            reservation.status === "WAITING"
+                              ? "secondary"
+                              : reservation.status === "RUNNING"
+                              ? "default"
+                              : "outline"
                           }
                         >
-                          {reservation.status === 'WAITING'
-                            ? '대기'
-                            : reservation.status === 'RUNNING'
-                              ? '사용중'
-                              : reservation.status}
+                          {reservation.status === "WAITING"
+                            ? "대기"
+                            : reservation.status === "RUNNING"
+                            ? "사용중"
+                            : reservation.status}
                         </Badge>
                         <Button
-                          variant='destructive'
-                          size='sm'
+                          variant="destructive"
+                          size="sm"
                           onClick={() =>
                             handleForceDeleteReservation(
                               reservation.reservationId
                             )
                           }
                         >
-                          <Trash2 className='h-4 w-4 mr-1' />
+                          <Trash2 className="h-4 w-4 mr-1" />
                           강제 삭제
                         </Button>
                       </div>
                     </div>
                   ))}
                   {filteredAdminReservations.length === 0 && (
-                    <div className='text-center py-8'>
-                      <Calendar className='h-12 w-12 mx-auto text-gray-400 mb-2' />
-                      <p className='text-gray-500'>활성 예약이 없습니다.</p>
+                    <div className="text-center py-8">
+                      <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+                      <p className="text-gray-500">활성 예약이 없습니다.</p>
                     </div>
                   )}
                 </div>
@@ -1114,51 +1145,57 @@ export default function AdminPage() {
           </TabsContent>
 
           {/* 신고 관리 탭 */}
-          <TabsContent value='reports' className='space-y-6'>
+          <TabsContent value="reports" className="space-y-6">
             {/* 필터 */}
             <Card>
               <CardHeader>
-                <CardTitle className='flex items-center gap-2'>
-                  <Filter className='h-5 w-5' />
+                <CardTitle className="flex items-center gap-2">
+                  <Filter className="h-5 w-5" />
                   필터
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor='report-search'>검색</Label>
+                    <Label htmlFor="report-search">검색</Label>
                     <Input
-                      id='report-search'
-                      placeholder='기기명, 사용자명, 내용 검색...'
+                      id="report-search"
+                      placeholder="기기명, 사용자명, 내용 검색..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
                   <div>
-                    <Label htmlFor='report-status'>상태</Label>
+                    <Label htmlFor="report-status">상태</Label>
                     <Select
                       value={reportStatusFilter}
                       onValueChange={(value) =>
-                        setReportStatusFilter(value as 'ALL' | 'PENDING' | 'IN_PROGRESS' | 'RESOLVED')
+                        setReportStatusFilter(
+                          value as
+                            | "ALL"
+                            | "PENDING"
+                            | "IN_PROGRESS"
+                            | "RESOLVED"
+                        )
                       }
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='ALL'>전체</SelectItem>
-                        <SelectItem value='PENDING'>대기</SelectItem>
-                        <SelectItem value='IN_PROGRESS'>처리중</SelectItem>
-                        <SelectItem value='RESOLVED'>완료</SelectItem>
+                        <SelectItem value="ALL">전체</SelectItem>
+                        <SelectItem value="PENDING">대기</SelectItem>
+                        <SelectItem value="IN_PROGRESS">처리중</SelectItem>
+                        <SelectItem value="RESOLVED">완료</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className='flex items-end'>
+                  <div className="flex items-end">
                     <Button
-                      variant='outline'
+                      variant="outline"
                       onClick={() => {
-                        setSearchTerm('');
-                        setReportStatusFilter('ALL');
+                        setSearchTerm("");
+                        setReportStatusFilter("ALL");
                       }}
                     >
                       필터 초기화
@@ -1177,49 +1214,50 @@ export default function AdminPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className='space-y-4'>
+                <div className="space-y-4">
                   {filteredReports.map((report) => (
                     <div
                       key={report.reportId}
-                      className='p-4 border rounded-lg'
+                      className="p-4 border rounded-lg"
                     >
-                      <div className='flex items-start justify-between mb-3'>
-                        <div className='flex items-center gap-3'>
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3">
                           <AlertTriangle
-                            className={`h-5 w-5 ${report.status === 'PENDING'
-                              ? 'text-red-500'
-                              : report.status === 'IN_PROGRESS'
-                                ? 'text-yellow-500'
-                                : 'text-green-500'
-                              }`}
+                            className={`h-5 w-5 ${
+                              report.status === "PENDING"
+                                ? "text-red-500"
+                                : report.status === "IN_PROGRESS"
+                                ? "text-yellow-500"
+                                : "text-green-500"
+                            }`}
                           />
                           <div>
-                            <p className='font-medium'>{report.machineName}</p>
-                            <p className='text-sm text-gray-500'>
+                            <p className="font-medium">{report.machineName}</p>
+                            <p className="text-sm text-gray-500">
                               신고자: {report.reportedByUserName} (
                               {report.reportedByUserNumber})
                             </p>
                           </div>
                         </div>
-                        <div className='flex items-center gap-2'>
+                        <div className="flex items-center gap-2">
                           <Badge
                             variant={
-                              report.status === 'PENDING'
-                                ? 'destructive'
-                                : report.status === 'IN_PROGRESS'
-                                  ? 'default'
-                                  : 'secondary'
+                              report.status === "PENDING"
+                                ? "destructive"
+                                : report.status === "IN_PROGRESS"
+                                ? "default"
+                                : "secondary"
                             }
                           >
-                            {report.status === 'PENDING'
-                              ? '대기'
-                              : report.status === 'IN_PROGRESS'
-                                ? '처리중'
-                                : '완료'}
+                            {report.status === "PENDING"
+                              ? "대기"
+                              : report.status === "IN_PROGRESS"
+                              ? "처리중"
+                              : "완료"}
                           </Badge>
                           <Button
-                            variant='outline'
-                            size='sm'
+                            variant="outline"
+                            size="sm"
                             onClick={() => {
                               setSelectedReportId(report.reportId);
                               setSelectedReportStatus(report.status);
@@ -1230,21 +1268,21 @@ export default function AdminPage() {
                           </Button>
                         </div>
                       </div>
-                      <div className='bg-gray-50 p-3 rounded'>
-                        <p className='text-sm'>{report.description}</p>
+                      <div className="bg-gray-50 p-3 rounded">
+                        <p className="text-sm">{report.description}</p>
                       </div>
                       {report.resolvedAt && (
-                        <p className='text-xs text-gray-500 mt-2'>
-                          해결 완료:{' '}
+                        <p className="text-xs text-gray-500 mt-2">
+                          해결 완료:{" "}
                           {new Date(report.resolvedAt).toLocaleString()}
                         </p>
                       )}
                     </div>
                   ))}
                   {filteredReports.length === 0 && (
-                    <div className='text-center py-8'>
-                      <AlertTriangle className='h-12 w-12 mx-auto text-gray-400 mb-2' />
-                      <p className='text-gray-500'>신고가 없습니다.</p>
+                    <div className="text-center py-8">
+                      <AlertTriangle className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+                      <p className="text-gray-500">신고가 없습니다.</p>
                     </div>
                   )}
                 </div>
@@ -1253,66 +1291,70 @@ export default function AdminPage() {
           </TabsContent>
 
           {/* 사용자 관리 탭 */}
-          <TabsContent value='users' className='space-y-6'>
+          <TabsContent value="users" className="space-y-6">
             {/* 필터 */}
             <Card>
               <CardHeader>
-                <CardTitle className='flex items-center gap-2'>
-                  <Filter className='h-5 w-5' />
+                <CardTitle className="flex items-center gap-2">
+                  <Filter className="h-5 w-5" />
                   필터
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div>
-                    <Label htmlFor='user-search'>검색</Label>
+                    <Label htmlFor="user-search">검색</Label>
                     <Input
-                      id='user-search'
-                      placeholder='이름, 학번, 호실 검색...'
+                      id="user-search"
+                      placeholder="이름, 학번, 호실 검색..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
                   <div>
-                    <Label htmlFor='user-gender'>성별</Label>
+                    <Label htmlFor="user-gender">성별</Label>
                     <Select
                       value={userGenderFilter}
-                      onValueChange={(value) => setUserGenderFilter(value as 'ALL' | 'MALE' | 'FEMALE')}
+                      onValueChange={(value) =>
+                        setUserGenderFilter(value as "ALL" | "MALE" | "FEMALE")
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='ALL'>전체</SelectItem>
-                        <SelectItem value='MALE'>남성</SelectItem>
-                        <SelectItem value='FEMALE'>여성</SelectItem>
+                        <SelectItem value="ALL">전체</SelectItem>
+                        <SelectItem value="MALE">남성</SelectItem>
+                        <SelectItem value="FEMALE">여성</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor='user-floor'>층</Label>
+                    <Label htmlFor="user-floor">층</Label>
                     <Select
                       value={userFloorFilter}
-                      onValueChange={(value) => setUserFloorFilter(value as 'ALL' | '3' | '4' | '5')}
+                      onValueChange={(value) =>
+                        setUserFloorFilter(value as "ALL" | "3" | "4" | "5")
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='ALL'>전체</SelectItem>
-                        <SelectItem value='3'>3층</SelectItem>
-                        <SelectItem value='4'>4층</SelectItem>
-                        <SelectItem value='5'>5층</SelectItem>
+                        <SelectItem value="ALL">전체</SelectItem>
+                        <SelectItem value="3">3층</SelectItem>
+                        <SelectItem value="4">4층</SelectItem>
+                        <SelectItem value="5">5층</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className='flex items-end'>
+                  <div className="flex items-end">
                     <Button
-                      variant='outline'
+                      variant="outline"
                       onClick={() => {
-                        setSearchTerm('');
-                        setUserGenderFilter('ALL');
-                        setUserFloorFilter('ALL');
+                        setSearchTerm("");
+                        setUserGenderFilter("ALL");
+                        setUserFloorFilter("ALL");
                       }}
                     >
                       필터 초기화
@@ -1331,42 +1373,42 @@ export default function AdminPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className='space-y-4'>
+                <div className="space-y-4">
                   {filteredAdminUsers.map((user) => {
                     const restricted = isUserRestricted(user);
                     return (
                       <div
                         key={user.id}
-                        className='flex items-center justify-between p-4 border rounded-lg'
+                        className="flex items-center justify-between p-4 border rounded-lg"
                       >
-                        <div className='flex items-center gap-4'>
-                          <div className='flex items-center justify-center w-10 h-10 bg-blue-100 rounded-full'>
-                            <Users className='h-5 w-5 text-blue-600' />
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-full">
+                            <Users className="h-5 w-5 text-blue-600" />
                           </div>
                           <div>
-                            <p className='font-medium'>{user.name}</p>
-                            <p className='text-sm text-gray-500'>
-                              {user.schoolNumber} • {user.roomName}호 •{' '}
-                              {user.gender === 'MALE' ? '남성' : '여성'}
+                            <p className="font-medium">{user.name}</p>
+                            <p className="text-sm text-gray-500">
+                              {user.schoolNumber} • {user.roomName}호 •{" "}
+                              {user.gender === "MALE" ? "남성" : "여성"}
                             </p>
                             {/* 정지 상태 표시 */}
                             {restricted && (
-                              <div className='mt-1'>
+                              <div className="mt-1">
                                 <Badge
-                                  variant='destructive'
-                                  className='text-xs'
+                                  variant="destructive"
+                                  className="text-xs"
                                 >
-                                  <Clock className='h-3 w-3 mr-1' />
+                                  <Clock className="h-3 w-3 mr-1" />
                                   정지 중
                                 </Badge>
-                                <p className='text-xs text-red-600 mt-1 font-mono'>
-                                  남은 시간:{' '}
+                                <p className="text-xs text-red-600 mt-1 font-mono">
+                                  남은 시간:{" "}
                                   {getRestrictedTimeRemaining(
                                     user.restrictedUntil!
                                   )}
                                 </p>
                                 {user.restrictionReason && (
-                                  <p className='text-xs text-gray-600 mt-1'>
+                                  <p className="text-xs text-gray-600 mt-1">
                                     사유: {user.restrictionReason}
                                   </p>
                                 )}
@@ -1374,29 +1416,29 @@ export default function AdminPage() {
                             )}
                           </div>
                         </div>
-                        <div className='flex items-center gap-2'>
+                        <div className="flex items-center gap-2">
                           {!restricted ? (
                             <Button
-                              variant='destructive'
-                              size='sm'
+                              variant="destructive"
+                              size="sm"
                               onClick={() => {
                                 setSelectedUserId(user.id);
                                 setIsRestrictDialogOpen(true);
                               }}
                             >
-                              <UserX className='h-4 w-4 mr-1' />
+                              <UserX className="h-4 w-4 mr-1" />
                               정지
                             </Button>
                           ) : (
                             <Button
-                              variant='outline'
-                              size='sm'
+                              variant="outline"
+                              size="sm"
                               onClick={() => {
                                 setSelectedUserId(user.id);
                                 setIsUnrestrictDialogOpen(true);
                               }}
                             >
-                              <UserCheck className='h-4 w-4 mr-1' />
+                              <UserCheck className="h-4 w-4 mr-1" />
                               정지 해제
                             </Button>
                           )}
@@ -1405,9 +1447,9 @@ export default function AdminPage() {
                     );
                   })}
                   {filteredAdminUsers.length === 0 && (
-                    <div className='text-center py-8'>
-                      <Users className='h-12 w-12 mx-auto text-gray-400 mb-2' />
-                      <p className='text-gray-500'>사용자가 없습니다.</p>
+                    <div className="text-center py-8">
+                      <Users className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+                      <p className="text-gray-500">사용자가 없습니다.</p>
                     </div>
                   )}
                 </div>
@@ -1428,27 +1470,31 @@ export default function AdminPage() {
                 신고의 처리 상태를 변경합니다.
               </DialogDescription>
             </DialogHeader>
-            <div className='space-y-4'>
+            <div className="space-y-4">
               <div>
-                <Label htmlFor='report-status-select'>상태</Label>
+                <Label htmlFor="report-status-select">상태</Label>
                 <Select
                   value={selectedReportStatus}
-                  onValueChange={(value) => setSelectedReportStatus(value as 'PENDING' | 'IN_PROGRESS' | 'RESOLVED')}
+                  onValueChange={(value) =>
+                    setSelectedReportStatus(
+                      value as "PENDING" | "IN_PROGRESS" | "RESOLVED"
+                    )
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value='PENDING'>대기</SelectItem>
-                    <SelectItem value='IN_PROGRESS'>처리중</SelectItem>
-                    <SelectItem value='RESOLVED'>완료</SelectItem>
+                    <SelectItem value="PENDING">대기</SelectItem>
+                    <SelectItem value="IN_PROGRESS">처리중</SelectItem>
+                    <SelectItem value="RESOLVED">완료</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <DialogFooter>
               <Button
-                variant='outline'
+                variant="outline"
                 onClick={() => setIsReportStatusDialogOpen(false)}
               >
                 취소
@@ -1470,28 +1516,30 @@ export default function AdminPage() {
                 사용자의 서비스 이용을 일시적으로 정지합니다.
               </DialogDescription>
             </DialogHeader>
-            <div className='space-y-4'>
+            <div className="space-y-4">
               <div>
-                <Label htmlFor='restriction-duration'>정지 기간</Label>
+                <Label htmlFor="restriction-duration">정지 기간</Label>
                 <Select
                   value={restrictionDuration}
-                  onValueChange={(value) => setRestrictionDuration(value as '1시간' | '1일' | '7일')}
+                  onValueChange={(value) =>
+                    setRestrictionDuration(value as "1시간" | "1일" | "7일")
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value='1시간'>1시간</SelectItem>
-                    <SelectItem value='1일'>1일</SelectItem>
-                    <SelectItem value='7일'>7일</SelectItem>
+                    <SelectItem value="1시간">1시간</SelectItem>
+                    <SelectItem value="1일">1일</SelectItem>
+                    <SelectItem value="7일">7일</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor='restriction-reason'>정지 이유</Label>
+                <Label htmlFor="restriction-reason">정지 이유</Label>
                 <Input
-                  id='restriction-reason'
-                  placeholder='정지 이유를 입력하세요...'
+                  id="restriction-reason"
+                  placeholder="정지 이유를 입력하세요..."
                   value={restrictionReason}
                   onChange={(e) => setRestrictionReason(e.target.value)}
                 />
@@ -1499,12 +1547,12 @@ export default function AdminPage() {
             </div>
             <DialogFooter>
               <Button
-                variant='outline'
+                variant="outline"
                 onClick={() => setIsRestrictDialogOpen(false)}
               >
                 취소
               </Button>
-              <Button variant='destructive' onClick={handleRestrictUser}>
+              <Button variant="destructive" onClick={handleRestrictUser}>
                 정지
               </Button>
             </DialogFooter>
@@ -1525,7 +1573,7 @@ export default function AdminPage() {
             </DialogHeader>
             <DialogFooter>
               <Button
-                variant='outline'
+                variant="outline"
                 onClick={() => setIsUnrestrictDialogOpen(false)}
               >
                 취소

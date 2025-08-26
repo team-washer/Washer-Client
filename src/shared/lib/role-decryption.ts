@@ -1,6 +1,5 @@
 import { privateDecrypt } from "crypto";
 import { UserRole } from "./auth-utils";
-import { getRole } from "./getRole";
 
 export default async function RoleDecryption(encryptedRole: string) {
   return privateDecrypt(

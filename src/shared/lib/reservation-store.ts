@@ -14,8 +14,8 @@ import {
   parseTimeStringToSeconds,
 } from "./api-client";
 import { MachineOperatingState } from "./machine-status";
-import RoleDecryption from "./role-decryption";
 import axios from "axios";
+import { getRole } from "./getRole";
 
 export type FloorType = 3 | 4 | 5;
 export type MachineType = "washing" | "dryer";
@@ -333,31 +333,7 @@ export const useReservationStore = create<ReservationStore>()(
     (set, get) => ({
       machines: [],
       reservations: [],
-      users: [
-        // 기본 사용자들 (개발용)
-        {
-          id: "admin@gsm.hs.kr",
-          name: "관리자",
-          roomNumber: "000",
-          gender: "MALE",
-          isAdmin: true,
-          studentId: "admin",
-        },
-        {
-          id: "s23046@gsm.hs.kr",
-          name: "박민준",
-          roomNumber: "415",
-          gender: "MALE",
-          studentId: "s23046",
-        },
-        {
-          id: "s23001@gsm.hs.kr",
-          name: "김지영",
-          roomNumber: "315",
-          gender: "FEMALE",
-          studentId: "s23001",
-        },
-      ],
+      users: [],
       isLoading: false,
       lastFetched: null,
       currentUserInfo: null,
@@ -667,15 +643,15 @@ export const useReservationStore = create<ReservationStore>()(
 
       getAccessibleFloors: (roomNumber: string) => {
         // 관리자는 모든 층 접근 가능
-        const isAdmin = async () => {
-          const { data } = await axios.get(`/api/auth/role`);
+        const checkAdminRole = async () => {
+          const preRole = getRole();
 
-          if (data.role === "ROLE_ADMIN") {
+          if (preRole === "ROLE_ADMIN") {
             return [3, 4, 5];
           }
         };
 
-        isAdmin();
+        checkAdminRole();
 
         const roomNum = Number.parseInt(roomNumber.replace(/[^0-9]/g, ""));
 

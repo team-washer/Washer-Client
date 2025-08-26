@@ -1,6 +1,9 @@
 export function getRole() {
   const value = `; ${document.cookie}`;
-  const parts = value.split(`; role=`);
 
-  return parts[1];
+  return value
+    .split(";")
+    .find((value) => value.includes("preRole"))
+    ?.split("=")
+    .at(1);
 }
