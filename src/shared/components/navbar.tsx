@@ -1,76 +1,99 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { useRouter, usePathname } from "next/navigation"
-import { Button } from "@/shared/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/shared/components/ui/sheet"
-import { Shirt, User, LogOut, Home, ClipboardList, ShieldAlert, Menu } from "lucide-react"
-import { useToast } from "@/shared/components/ui/use-toast"
-import { useReservationStore } from "@/shared/lib/reservation-store"
-import { authApi, userApi, UserInfoResponse } from "@/shared/lib/api-client"
-import { RoleDecryption } from "../lib/role-decryption"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
+import { Button } from "@/shared/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/shared/components/ui/sheet";
+import {
+  Shirt,
+  User,
+  LogOut,
+  Home,
+  ClipboardList,
+  ShieldAlert,
+  Menu,
+} from "lucide-react";
+import { useToast } from "@/shared/components/ui/use-toast";
+import { useReservationStore } from "@/shared/lib/reservation-store";
+import { authApi, userApi, UserInfoResponse } from "@/shared/lib/api-client";
+import axios from "axios";
+import { cookies } from "next/headers";
 
 export function Navbar() {
-  const router = useRouter()
-  const pathname = usePathname()
-  const { toast } = useToast()
-  const [user, setUser] = useState<UserInfoResponse | null>(null)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [isOpen, setIsOpen] = useState(false)
-  const { fetchMyInfo } = useReservationStore()
-  const isAuthPage = pathname === "/login" || pathname === "/register" || pathname === "/forgot-password"
+  const router = useRouter();
+  const pathname = usePathname();
+  const { toast } = useToast();
+  const [user, setUser] = useState<UserInfoResponse | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const { fetchMyInfo } = useReservationStore();
+  const isAuthPage =
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/forgot-password";
 
   useEffect(() => {
-    // 관리자 여부 확인
-    if (RoleDecryption() === 'ROLE_ADMIN') {
-      setIsAdmin(true);
-    }
+    const checkAdminRole = async () => {
+      try {
+        const { data } = await axios.get(`/api/auth/role`);
+        setIsAdmin(data.role === "ROLE_ADMIN");
+      } catch (error) {
+        console.error("Failed to fetch role:", error);
+        setIsAdmin(false);
+      }
+    };
+
+    const fetchUserInfo = async () => {
+      try {
+        const userInfo = await userApi.getMyInfo();
+        setUser(userInfo.data);
+      } catch (error) {
+        console.error("Failed to fetch user info:", error);
+        setUser(null);
+      }
+    };
 
     if (!isAuthPage) {
+      checkAdminRole();
       setIsAuthenticated(true);
-    }else if(isAuthPage) {
+    } else if (isAuthPage) {
       setIsAuthenticated(false);
     }
 
-    fetchMyInfo()
-    const fetchUserInfo = async () => {
-      try {
-        const userInfo = await userApi.getMyInfo()
-        setUser(userInfo.data);
-      } catch (error) {
-        console.error("Failed to fetch user info:", error)
-        setUser(null)
-      }
-    }
-    fetchUserInfo()
-  }, [pathname, fetchMyInfo, isAuthPage])
+    fetchMyInfo();
+    fetchUserInfo();
+  }, [pathname, fetchMyInfo, isAuthPage]);
 
   const handleLogout = async () => {
     try {
-      await authApi.logout()
+      await authApi.logout();
     } catch (error) {
       // 로그아웃은 실패해도 진행
-      console.error("Logout error:", error)
+      console.error("Logout error:", error);
     }
 
-    setIsOpen(false)
+    setIsOpen(false);
 
     toast({
       title: "로그아웃 성공",
       description: "안전하게 로그아웃되었습니다.",
-    })
+    });
 
-    router.push("/login")
-  }
+    router.push("/login");
+  };
 
   const closeSheet = () => {
-    setIsOpen(false)
-  }
+    setIsOpen(false);
+  };
 
   if (!isAuthenticated) {
-    return null
+    return null;
   }
 
   const navigationItems = [
@@ -88,15 +111,15 @@ export function Navbar() {
     },
     ...(isAdmin
       ? [
-        {
-          href: "/admin",
-          label: "관리자",
-          icon: ShieldAlert,
-          active: pathname === "/admin",
-        },
-      ]
+          {
+            href: "/admin",
+            label: "관리자",
+            icon: ShieldAlert,
+            active: pathname === "/admin",
+          },
+        ]
       : []),
-  ]
+  ];
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm">
@@ -104,7 +127,9 @@ export function Navbar() {
         <div className="flex items-center space-x-4 sm:space-x-6">
           <Link href="/" className="flex items-center">
             <Shirt className="h-5 w-5 md:h-6 md:w-6 text-[#86A9FF]" />
-            <span className="ml-2 text-lg md:text-xl font-bold text-[#6487DB]">Washer</span>
+            <span className="ml-2 text-lg md:text-xl font-bold text-[#6487DB]">
+              Washer
+            </span>
           </Link>
 
           <div className="hidden md:flex items-center space-x-1">
@@ -112,8 +137,11 @@ export function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-3 py-2 rounded-md text-sm font-medium ${item.active ? "bg-[#A8C2FF] text-[#6487DB]" : "text-gray-600 hover:bg-[#EDF2FF]"
-                  }`}
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  item.active
+                    ? "bg-[#A8C2FF] text-[#6487DB]"
+                    : "text-gray-600 hover:bg-[#EDF2FF]"
+                }`}
               >
                 <div className="flex items-center">
                   <item.icon className="h-4 w-4 mr-1" />
@@ -137,8 +165,14 @@ export function Navbar() {
                   "로딩 중..."
                 )}
               </div>
-              {user?.roomNumber && !isAdmin && <div className="text-xs text-gray-500">{user.roomNumber}호</div>}
-              {isAdmin && user?.roomNumber && <div className="text-xs text-red-500">관리자 | {user.roomNumber}호</div>}
+              {user?.roomNumber && !isAdmin && (
+                <div className="text-xs text-gray-500">{user.roomNumber}호</div>
+              )}
+              {isAdmin && user?.roomNumber && (
+                <div className="text-xs text-red-500">
+                  관리자 | {user.roomNumber}호
+                </div>
+              )}
             </div>
             <Button
               variant="ghost"
@@ -148,7 +182,12 @@ export function Navbar() {
             >
               <User className="h-4 w-4 text-[#6487DB]" />
             </Button>
-            <Button variant="ghost" size="icon" className="rounded-full bg-red-100 h-8 w-8" onClick={handleLogout}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full bg-red-100 h-8 w-8"
+              onClick={handleLogout}
+            >
               <LogOut className="h-4 w-4 text-red-600" />
             </Button>
           </div>
@@ -181,10 +220,14 @@ export function Navbar() {
                           )}
                         </div>
                         {user?.roomNumber && !isAdmin && (
-                          <div className="text-xs text-gray-500">{user.roomNumber}호</div>
+                          <div className="text-xs text-gray-500">
+                            {user.roomNumber}호
+                          </div>
                         )}
                         {isAdmin && user?.roomNumber && (
-                          <div className="text-xs text-red-500">관리자 | {user.roomNumber}호</div>
+                          <div className="text-xs text-red-500">
+                            관리자 | {user.roomNumber}호
+                          </div>
                         )}
                       </div>
                     </div>
@@ -197,8 +240,11 @@ export function Navbar() {
                         key={item.href}
                         href={item.href}
                         onClick={closeSheet}
-                        className={`flex items-center px-3 py-3 rounded-md text-sm font-medium transition-colors ${item.active ? "bg-[#A8C2FF] text-[#6487DB]" : "text-gray-600 hover:bg-[#EDF2FF]"
-                          }`}
+                        className={`flex items-center px-3 py-3 rounded-md text-sm font-medium transition-colors ${
+                          item.active
+                            ? "bg-[#A8C2FF] text-[#6487DB]"
+                            : "text-gray-600 hover:bg-[#EDF2FF]"
+                        }`}
                       >
                         <item.icon className="h-5 w-5 mr-3" />
                         {item.label}
@@ -224,5 +270,5 @@ export function Navbar() {
         </div>
       </div>
     </nav>
-  )
+  );
 }
