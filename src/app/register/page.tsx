@@ -131,10 +131,10 @@ export default function RegisterPage() {
       }
       return rooms
     } else if (gender === "FEMALE") {
-      const rooms = []
-      for (let i = 501; i <= 518; i++) {
-        rooms.push(`${i}`)
-      }
+      const rooms: string[] = []
+      // for (let i = 501; i <= 518; i++) {
+      //   rooms.push(`${i}`)
+      // }
       return rooms
     }
     return []
@@ -318,7 +318,7 @@ export default function RegisterPage() {
         description: "회원가입이 성공적으로 완료되었습니다.",
       })
       nextStep()
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "회원가입 실패",
         description: error.message || "회원가입 중 오류가 발생했습니다.",
@@ -574,7 +574,7 @@ export default function RegisterPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="MALE">남성</SelectItem>
-                  <SelectItem value="FEMALE">여성</SelectItem>
+                  <SelectItem value="FEMALE">여성(현재 호실 등록이 되어있지 않습니다.)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
