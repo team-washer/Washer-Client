@@ -42,7 +42,6 @@ export default function MyPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
-  // const [userInfo, setUserInfo] = useState<UserInfoResponse | null>(null);
   const [remainingTime, setRemainingTime] = useState<number>(0);
   const [refreshCooldown, setRefreshCooldown] = useState(0);
   const [actionLoading, setActionLoading] = useState(false);
