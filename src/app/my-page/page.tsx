@@ -36,38 +36,39 @@ import {
 } from "@/shared/lib/api-client";
 import { formatTime } from "@/shared/lib/utils";
 import { usePullToRefresh } from "@/shared/hooks/use-pull-to-refresh";
-import useReservationStore from "@/shared/lib/reservation-store";
 
 export default function MyPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
+  const [userInfo, setUserInfo] = useState<UserInfoResponse | null>(null);
   const [remainingTime, setRemainingTime] = useState<number>(0);
   const [refreshCooldown, setRefreshCooldown] = useState(0);
   const [actionLoading, setActionLoading] = useState(false);
   const [machineCheckInterval, setMachineCheckInterval] =
     useState<NodeJS.Timeout | null>(null);
   const [currentMachineState, setCurrentMachineState] = useState<string>("");
-  const {currentUserInfo, fetchMyInfo} = useReservationStore();
 
   const loadUserInfo = async () => {
     setIsLoading(true);
     try {
-      await fetchMyInfo();
+      const response = await userApi.getMyInfo();
+
+      setUserInfo(response.data);
 
       // 서버에서 받은 remainingTime을 우선적으로 사용
-      if (currentUserInfo?.remainingTime !== "00:00:00") {
+      if (response.data.remainingTime !== "00:00:00") {
         // 서버에서 받은 remainingTime 파싱 (HH:MM:SS 형식)
         const parsedTime = parseTimeStringToSeconds(
-          currentUserInfo?.remainingTime || ""
+          response.data.remainingTime || ""
         );
         setRemainingTime(parsedTime);
       } else {
         // 서버에서 시간 정보가 없을 때만 클라이언트에서 추정
-        if (currentUserInfo?.status === "WAITING") {
+        if (response.data.status === "WAITING") {
           // 대기 중: 5분 (300초)
           setRemainingTime(300);
-        } else if (currentUserInfo?.status === "CONFIRMED") {
+        } else if (response.data.status === "CONFIRMED") {
           // 확정됨: 2분 (120초) - 서버 연결 대기 시간
           setRemainingTime(120);
         } else {
@@ -148,21 +149,22 @@ export default function MyPage() {
 
   // 기기 상태 체크 (confirmed 상태일 때 20초마다)
   const checkMachineStatus = useCallback(async () => {
-    if (!currentUserInfo?.reservationId || !currentUserInfo?.machineLabel) return;
+    if (!userInfo?.reservationId || !userInfo?.machineLabel) return;
 
     try {
       const response = await machineApi.getDevices();
+      console.log("Machine status response:", response);
       if (response.status === 200 && response.data) {
         const { washer, dryer } = response.data;
         const allMachines = [...washer, ...dryer];
 
         // 현재 예약된 기기 찾기
         const currentMachine = allMachines.find(
-          (machine) => machine.label === currentUserInfo.machineLabel
+          (machine) => machine.label === userInfo.machineLabel
         );
 
         if (currentMachine) {
-          const machineType = currentUserInfo.machineLabel
+          const machineType = userInfo.machineLabel
             ?.toLowerCase()
             .includes("dryer")
             ? "dryer"
@@ -194,9 +196,13 @@ export default function MyPage() {
               setRemainingTime(calculatedTime);
             }
 
-            fetchMyInfo();
+            // 사용자 정보 새로고침하여 running 상태로 업데이트
+            const updatedUserInfo = await userApi.getMyInfo();
+            if (updatedUserInfo.status === 200 && updatedUserInfo.data) {
+              setUserInfo(updatedUserInfo.data);
+            }
 
-            const machineTypeName = currentUserInfo.machineLabel
+            const machineTypeName = userInfo.machineLabel
               ?.toLowerCase()
               .includes("dryer")
               ? "건조기"
@@ -211,17 +217,17 @@ export default function MyPage() {
     } catch (error) {
       console.error("❌ Failed to check machine status:", error);
     }
-  }, [currentUserInfo?.reservationId, currentUserInfo?.machineLabel, machineCheckInterval]);
+  }, [userInfo?.reservationId, userInfo?.machineLabel, machineCheckInterval]);
 
   // confirmed 상태일 때 기기 상태 체크 시작
   useEffect(() => {
-    if (currentUserInfo?.status === "CONFIRMED" && !machineCheckInterval) {
+    if (userInfo?.status === "CONFIRMED" && !machineCheckInterval) {
       const interval = setInterval(checkMachineStatus, 20000); // 20초마다
       setMachineCheckInterval(interval);
 
       // 즉시 한 번 체크
       checkMachineStatus();
-    } else if (currentUserInfo?.status !== "CONFIRMED" && machineCheckInterval) {
+    } else if (userInfo?.status !== "CONFIRMED" && machineCheckInterval) {
       clearInterval(machineCheckInterval);
       setMachineCheckInterval(null);
     }
@@ -232,7 +238,7 @@ export default function MyPage() {
         clearInterval(machineCheckInterval);
       }
     };
-  }, [currentUserInfo?.status, machineCheckInterval, checkMachineStatus]);
+  }, [userInfo?.status, machineCheckInterval, checkMachineStatus]);
 
   const handleRefresh = async () => {
     if (refreshCooldown > 0) {
@@ -272,12 +278,12 @@ export default function MyPage() {
   });
 
   const handleCancelReservation = async () => {
-    if (!currentUserInfo?.reservationId) return;
+    if (!userInfo?.reservationId) return;
 
     setActionLoading(true);
     try {
       const response = await reservationApi.deleteReservation(
-        currentUserInfo.reservationId
+        userInfo.reservationId
       );
 
       if (response.status === 200) {
@@ -292,7 +298,11 @@ export default function MyPage() {
           description: "예약이 성공적으로 취소되었습니다.",
         });
 
-        fetchMyInfo();
+        // 사용자 정보 새로고침
+        const updatedUserInfo = await userApi.getMyInfo();
+        if (updatedUserInfo.status === 200) {
+          setUserInfo(updatedUserInfo.data);
+        }
       }
     } catch (error: any) {
       console.error("❌ Cancel reservation error:", error);
@@ -308,27 +318,27 @@ export default function MyPage() {
   };
 
   const handleConfirmReservation = async () => {
-    if (!currentUserInfo?.reservationId) return;
+    if (!userInfo?.reservationId) return;
 
     setActionLoading(true);
     try {
       const response = await reservationApi.confirmReservation(
-        currentUserInfo?.reservationId
+        userInfo?.reservationId
       );
 
       if (response.status === 200) {
-        const machineType = currentUserInfo?.machineLabel
+        const machineType = userInfo?.machineLabel
           ?.toLowerCase()
           .includes("dryer")
           ? "건조"
           : "세탁";
 
-        if (currentUserInfo?.status === "WAITING") {
+        if (userInfo?.status === "WAITING") {
           toast({
             title: "예약 확정 완료",
             description: `예약이 확정되었습니다. ${machineType} 시작 버튼을 눌러주세요.`,
           });
-        } else if (currentUserInfo?.status === "RESERVED") {
+        } else if (userInfo.status === "RESERVED") {
           toast({
             title: `${machineType} 시작`,
             description: `${machineType}기에 연결 중입니다. 잠시만 기다려주세요.`,
@@ -336,10 +346,12 @@ export default function MyPage() {
           clearInterval(machineCheckInterval!);
         }
 
-        fetchMyInfo();
-        if (currentUserInfo) {
+        // 사용자 정보 새로고침
+        const updatedUserInfo = await userApi.getMyInfo();
+        if (updatedUserInfo.status === 200) {
+          setUserInfo(updatedUserInfo.data);
           const parsedTime = parseTimeStringToSeconds(
-            currentUserInfo.remainingTime || "00:00:00"
+            updatedUserInfo.data.remainingTime || "00:00:00"
           );
           setRemainingTime(parsedTime);
         }
@@ -444,8 +456,8 @@ export default function MyPage() {
   };
 
   const isRestricted =
-    currentUserInfo?.restrictedUntil &&
-    new Date(currentUserInfo.restrictedUntil) > new Date();
+    userInfo?.restrictedUntil &&
+    new Date(userInfo.restrictedUntil) > new Date();
 
   if (isLoading) {
     return (
@@ -458,7 +470,7 @@ export default function MyPage() {
     );
   }
 
-  if (!currentUserInfo) {
+  if (!userInfo) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Card className="w-full max-w-md">
@@ -549,16 +561,16 @@ export default function MyPage() {
                     <User className="h-4 w-4 text-gray-500" />
                     <span className="text-sm text-gray-500">이름</span>
                   </div>
-                  <p className="font-medium">{currentUserInfo.name}</p>
+                  <p className="font-medium">{userInfo.name}</p>
                 </div>
 
-                {currentUserInfo.schoolNumber && (
+                {userInfo.schoolNumber && (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <GraduationCap className="h-4 w-4 text-gray-500" />
                       <span className="text-sm text-gray-500">학번</span>
                     </div>
-                    <p className="font-medium">{currentUserInfo.schoolNumber}</p>
+                    <p className="font-medium">{userInfo.schoolNumber}</p>
                   </div>
                 )}
 
@@ -567,7 +579,7 @@ export default function MyPage() {
                     <MapPin className="h-4 w-4 text-gray-500" />
                     <span className="text-sm text-gray-500">호실</span>
                   </div>
-                  <p className="font-medium">{currentUserInfo.roomNumber}호</p>
+                  <p className="font-medium">{userInfo.roomNumber}호</p>
                 </div>
 
                 <div className="space-y-2">
@@ -576,7 +588,7 @@ export default function MyPage() {
                     <span className="text-sm text-gray-500">성별</span>
                   </div>
                   <p className="font-medium">
-                    {currentUserInfo.gender === "MALE" ? "남성" : "여성"}
+                    {userInfo.gender === "MALE" ? "남성" : "여성"}
                   </p>
                 </div>
               </div>
@@ -592,11 +604,11 @@ export default function MyPage() {
                   </div>
                   <p className="text-sm text-red-700 dark:text-red-400 mb-1">
                     제한 해제:{" "}
-                    {new Date(currentUserInfo.restrictedUntil!).toLocaleString()}
+                    {new Date(userInfo.restrictedUntil!).toLocaleString()}
                   </p>
-                  {currentUserInfo.restrictionReason && (
+                  {userInfo.restrictionReason && (
                     <p className="text-sm text-red-700 dark:text-red-400">
-                      사유: {currentUserInfo.restrictionReason}
+                      사유: {userInfo.restrictionReason}
                     </p>
                   )}
                 </div>
@@ -614,35 +626,35 @@ export default function MyPage() {
             </CardHeader>
             <CardContent>
               {!(
-                currentUserInfo.remainingTime === "00:00:00" || !currentUserInfo.remainingTime
-              ) ? ( 
+                userInfo.remainingTime === "00:00:00" || !userInfo.remainingTime
+              ) ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-medium text-lg">
-                        {currentUserInfo.machineLabel}
+                        {userInfo.machineLabel}
                       </p>
                       <p className="text-sm text-gray-500">
                         예약 시작:{" "}
-                        {currentUserInfo.startTime
-                          ? new Date(currentUserInfo.startTime).toLocaleString()
+                        {userInfo.startTime
+                          ? new Date(userInfo.startTime).toLocaleString()
                           : "정보 없음"}
                       </p>
                     </div>
-                    {currentUserInfo.status && getStatusBadge(currentUserInfo.status)}
+                    {userInfo.status && getStatusBadge(userInfo.status)}
                   </div>
 
                   {/* 상태 설명 */}
-                  {currentUserInfo.status && getStatusDescription(currentUserInfo.status) && (
+                  {userInfo.status && getStatusDescription(userInfo.status) && (
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/20 dark:border-blue-800">
                       <p className="text-sm text-blue-700 dark:text-blue-400">
-                        {getStatusDescription(currentUserInfo.status)}
+                        {getStatusDescription(userInfo.status)}
                       </p>
                     </div>
                   )}
 
                   {/* 기기 상태 체크 중 표시 */}
-                  {currentUserInfo.status === "CONFIRMED" && (
+                  {userInfo.status === "CONFIRMED" && (
                     <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg dark:bg-orange-900/20 dark:border-orange-800">
                       <div className="flex items-center gap-2 mb-2">
                         <Loader2 className="h-4 w-4 text-orange-600 animate-spin" />
@@ -661,7 +673,7 @@ export default function MyPage() {
                   {remainingTime > 0 && (
                     <div
                       className={`p-4 rounded-lg border ${
-                        currentUserInfo.status === "RUNNING"
+                        userInfo.status === "RUNNING"
                           ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
                           : "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
                       }`}
@@ -669,24 +681,24 @@ export default function MyPage() {
                       <div className="flex items-center gap-2 mb-2">
                         <Clock
                           className={`h-5 w-5 ${
-                            currentUserInfo.status === "RUNNING"
+                            userInfo.status === "RUNNING"
                               ? "text-green-600"
                               : "text-blue-600"
                           }`}
                         />
                         <span
                           className={`font-medium ${
-                            currentUserInfo.status === "RUNNING"
+                            userInfo.status === "RUNNING"
                               ? "text-green-800 dark:text-green-400"
                               : "text-blue-800 dark:text-blue-400"
                           }`}
                         >
-                          {getRemainingTimeLabel(currentUserInfo.status || "")}
+                          {getRemainingTimeLabel(userInfo.status || "")}
                         </span>
                       </div>
                       <p
                         className={`text-2xl font-bold ${
-                          currentUserInfo.status === "RUNNING"
+                          userInfo.status === "RUNNING"
                             ? "text-green-600 dark:text-green-400"
                             : "text-blue-600 dark:text-blue-400"
                         }`}
@@ -700,7 +712,7 @@ export default function MyPage() {
 
                   <div className="flex gap-2">
                     {/* 대기 중일 때: 예약 확정 버튼 */}
-                    {currentUserInfo.status === "WAITING" && (
+                    {userInfo.status === "WAITING" && (
                       <Button
                         onClick={handleConfirmReservation}
                         disabled={actionLoading}
@@ -712,7 +724,7 @@ export default function MyPage() {
                     )}
 
                     {/* 예약됨 상태일 때: 세탁/건조 시작 버튼 */}
-                    {currentUserInfo.status === "RESERVED" && (
+                    {userInfo.status === "RESERVED" && (
                       <Button
                         onClick={handleConfirmReservation}
                         disabled={actionLoading}
@@ -721,7 +733,7 @@ export default function MyPage() {
                         <Play className="h-4 w-4 mr-2" />
                         {actionLoading
                           ? "처리 중..."
-                          : currentUserInfo.machineLabel
+                          : userInfo.machineLabel
                               ?.toLowerCase()
                               .includes("dryer")
                           ? "건조 시작"
@@ -730,7 +742,7 @@ export default function MyPage() {
                     )}
 
                     {["WAITING", "RESERVED", "CONFIRMED"].includes(
-                      currentUserInfo.status || ""
+                      userInfo.status || ""
                     ) && (
                       <Button
                         variant="destructive"

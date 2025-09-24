@@ -13,7 +13,6 @@ export async function POST(request: NextRequest) {
     const body: RequestBody = await request.json();
 
     const response: AuthResponse = await apiClient.post('/auth/signin', body);
-    console.log('response', response.data);
 
     if (response.data && response.data.success && response.data.data) {
       const {
@@ -60,7 +59,6 @@ export async function POST(request: NextRequest) {
       return res;
     }
   } catch (error: any) {
-    console.log(error);
     return NextResponse.json(
       { message: error.response?.data?.error?.message },
       { status: error?.status }
