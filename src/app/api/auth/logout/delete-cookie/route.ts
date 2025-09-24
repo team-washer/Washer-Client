@@ -9,8 +9,10 @@ export async function POST(request: NextRequest) {
     response.cookies.set('role', '', { expires: new Date(0) });
     
     return response;
-  } catch (error) {
-    console.error('Logout failed:', error);
-    return NextResponse.json({ error: 'Logout failed' }, { status: 500 });
+  } catch (error: any) {
+    return NextResponse.json(
+      { message: error.response?.data?.error?.message },
+      { status: error?.status }
+    );
   }
 }

@@ -55,10 +55,10 @@ export function ReportMachineModal({
 
       setDescription('');
       setIsOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: '신고 실패',
-        description: error.message || '신고 접수 중 오류가 발생했습니다.',
+        description: error.response.data.message || '신고 접수 중 오류가 발생했습니다.',
         variant: 'destructive',
       });
     } finally {
@@ -72,7 +72,7 @@ export function ReportMachineModal({
         <Button
           variant='outline'
           size='sm'
-          className='border-orange-500 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-500 dark:hover:bg-orange-900/20'
+          className='border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-600 dark:border-orange-700 dark:text-orange-500 dark:hover:bg-orange-900/20'
         >
           <AlertTriangle className='h-4 w-4 mr-1' />
           <p className='max-[400px]:hidden'>고장 신고</p>

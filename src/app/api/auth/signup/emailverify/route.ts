@@ -5,17 +5,17 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   
   try {
-    const response = await apiClient.post('/auth/signup/emailverify', body);
+    const response = await apiClient.post('/auth/signup/email/verify', body);
     console.log('이메일 인증 응답:', response.data);
     if (response.data && response.data.success) {
       return NextResponse.json(response.data, { status: 200 });
     } else {
       return NextResponse.json(response.data, { status: 400 });
     }
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json(
-      { error: '서버에서 이메일 인증 정보를 받아오지 못 했습니다.' },
-      { status: 500 }
+      { message: error.response?.data?.error?.message },
+      { status: error?.status }
     );
   }
 }

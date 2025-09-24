@@ -17,10 +17,10 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(response.data.data);
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json(
-      { error: '서버에서 기기 정보를 받아오지 못 했습니다.' },
-      { status: 500 }
+      { message: error.response?.data?.error?.message },
+      { status: error?.status }
     );
   }
 }

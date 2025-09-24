@@ -5,17 +5,17 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
 
   try {
-    const response = await apiClient.post('/auth/pwchange/mailsend', body);
+    const response = await apiClient.post('/auth/password/change/mail/send', body);
 
     if (response.data && response.data.success) {
       return new Response(response.data.message, { status: 200 });
     } else {
       return new Response(response.data.message, { status: 400 });
     }
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json(
-      { error: '서버에서 메일 전송 정보를 받아오지 못 했습니다.' },
-      { status: 500 }
+      { message: error.response?.data?.error?.message },
+      { status: error?.status }
     );
   }
 }

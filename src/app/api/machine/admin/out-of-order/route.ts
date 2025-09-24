@@ -39,10 +39,10 @@ export async function PATCH(request: NextRequest) {
       { headers }
     );
     return NextResponse.json(response.data);
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json(
-      { error: '서버에서 리포트 정보를 업데이트하지 못 했습니다.' },
-      { status: 500 }
+      { message: error.response?.data?.error?.message },
+      { status: error?.status }
     );
   }
 }

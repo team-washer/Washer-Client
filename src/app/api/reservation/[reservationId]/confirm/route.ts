@@ -23,10 +23,10 @@ export async function POST(
     } else {
       return new Response(response.data.message, { status: 400 });
     }
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json(
-      { error: '서버에서 예약 시작을 못 했습니다.' },
-      { status: 500 }
+      { message: error.response?.data?.error?.message },
+      { status: error?.status }
     );
   }
 }

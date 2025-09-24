@@ -205,7 +205,6 @@ export default function AdminPage() {
 
     // 보안 검증
     if (!securityManager.validateTokenAndRole()) {
-      console.warn("⚠️ Security validation failed");
       toast({
         title: "보안 오류",
         description: "인증 정보에 문제가 있습니다. 다시 로그인해주세요.",
@@ -217,7 +216,6 @@ export default function AdminPage() {
 
     // 변조 감지
     if (securityManager.detectTampering()) {
-      console.warn("⚠️ Tampering detected");
       toast({
         title: "보안 경고",
         description: "권한 정보가 변조되었습니다. 다시 로그인해주세요.",
@@ -271,8 +269,8 @@ export default function AdminPage() {
         loadAdminUsers(),
         fetchMachines(),
       ]);
-    } catch (error) {
-      console.error("Failed to load admin data:", error);
+    } catch (error: any) {
+      console.error(error.response.data);
     }
   };
 
@@ -281,8 +279,8 @@ export default function AdminPage() {
     try {
       const response = await machineApi.getReports();
       setReports(response.data);
-    } catch (error) {
-      console.error("Failed to load reports:", error);
+    } catch (error: any) {
+      console.error(error.response?.data);
     }
   };
 
@@ -291,8 +289,8 @@ export default function AdminPage() {
     try {
       const response = await machineApi.getOutOfOrderDevices();
       setOutOfOrderDevices(response.data);
-    } catch (error) {
-      console.error("Failed to load out of order devices:", error);
+    } catch (error: any) {
+      console.error(error.response?.data);
     }
   };
 
@@ -307,8 +305,8 @@ export default function AdminPage() {
           : 0,
       }));
       setAdminReservations(processedReservations);
-    } catch (error) {
-      console.error("Failed to load admin reservations:", error);
+    } catch (error: any) {
+      console.error(error.response?.data);
     }
   };
 
@@ -318,8 +316,8 @@ export default function AdminPage() {
       const response = await userApi.getUsers();
 
       setAdminUsers(response.data);
-    } catch (error) {
-      console.error("Failed to load admin users:", error);
+    } catch (error: any) {
+      console.error(error.response?.data);
     }
   };
 
@@ -369,10 +367,10 @@ export default function AdminPage() {
       });
       await loadReports();
       console.log("Report status updated:", response.data);
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "상태 변경 실패",
-        description: error.message || "상태 변경 중 오류가 발생했습니다.",
+        description: error.response?.data?.message || "상태 변경 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     } finally {
@@ -393,16 +391,15 @@ export default function AdminPage() {
       );
       toast({
         title: !currentStatus ? "기기 고장 등록" : "기기 수리 완료",
-        description: `${deviceName} 기기가 ${
-          !currentStatus ? "고장 상태로 등록" : "수리 완료 상태로 변경"
-        }되었습니다.`,
+        description: `${deviceName} 기기가 ${!currentStatus ? "고장 상태로 등록" : "수리 완료 상태로 변경"
+          }되었습니다.`,
       });
       await loadOutOfOrderDevices();
       await fetchMachines(); // 메인 기기 목록도 새로고침
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "상태 변경 실패",
-        description: error.message || "기기 상태 변경 중 오류가 발생했습니다.",
+        description: error.response?.data?.message || "기기 상태 변경 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     }
@@ -419,10 +416,10 @@ export default function AdminPage() {
         description: "예약이 성공적으로 삭제되었습니다.",
       });
       await loadAdminReservations();
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "예약 삭제 실패",
-        description: error.message || "예약 삭제 중 오류가 발생했습니다.",
+        description: error.response?.data?.message || "예약 삭제 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     }
@@ -450,12 +447,10 @@ export default function AdminPage() {
         description: `사용자가 ${restrictionDuration} 동안 정지되었습니다.`,
       });
       await loadAdminUsers();
-      console.log("User restricted:", response.data);
-    } catch (error) {
-      console.error(`❌ Restrict user error:`, error);
+    } catch (error: any) {
       toast({
         title: "정지 실패",
-        description: error.message || "사용자 정지 중 오류가 발생했습니다.",
+        description: error.response?.data?.message || "사용자 정지 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     } finally {
@@ -478,10 +473,10 @@ export default function AdminPage() {
       });
       await loadAdminUsers();
       console.log("User unrestricted:", response.data);
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "정지 해제 실패",
-        description: error.message || "정지 해제 중 오류가 발생했습니다.",
+        description: error.response?.data?.message || "정지 해제 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     } finally {
@@ -617,9 +612,8 @@ export default function AdminPage() {
       {(isPulling || pullRefreshing) && (
         <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-white dark:bg-gray-800 rounded-full p-3 shadow-lg border">
           <RefreshCw
-            className={`h-5 w-5 text-[#6487DB] ${
-              pullRefreshing ? "animate-spin" : ""
-            }`}
+            className={`h-5 w-5 text-[#6487DB] ${pullRefreshing ? "animate-spin" : ""
+              }`}
           />
         </div>
       )}
@@ -643,8 +637,8 @@ export default function AdminPage() {
             {refreshing
               ? "새로고침 중..."
               : refreshCooldown > 0
-              ? `새로고침 (${refreshCooldown}초)`
-              : "새로고침"}
+                ? `새로고침 (${refreshCooldown}초)`
+                : "새로고침"}
           </Button>
         </div>
 
@@ -785,15 +779,15 @@ export default function AdminPage() {
                             report.status === "PENDING"
                               ? "destructive"
                               : report.status === "IN_PROGRESS"
-                              ? "default"
-                              : "secondary"
+                                ? "default"
+                                : "secondary"
                           }
                         >
                           {report.status === "PENDING"
                             ? "대기"
                             : report.status === "IN_PROGRESS"
-                            ? "처리중"
-                            : "완료"}
+                              ? "처리중"
+                              : "완료"}
                         </Badge>
                       </div>
                     ))}
@@ -824,11 +818,10 @@ export default function AdminPage() {
                           <p className="text-xs text-gray-500">
                             남은 시간:{" "}
                             <span
-                              className={`font-mono ${
-                                reservation.remainingSeconds <= 300
+                              className={`font-mono ${reservation.remainingSeconds <= 300
                                   ? "text-red-600 font-semibold"
                                   : ""
-                              }`}
+                                }`}
                             >
                               {reservation.remainingTime}
                             </span>
@@ -839,15 +832,15 @@ export default function AdminPage() {
                             reservation.status === "WAITING"
                               ? "secondary"
                               : reservation.status === "RUNNING"
-                              ? "default"
-                              : "outline"
+                                ? "default"
+                                : "outline"
                           }
                         >
                           {reservation.status === "WAITING"
                             ? "대기"
                             : reservation.status === "RUNNING"
-                            ? "사용중"
-                            : reservation.status}
+                              ? "사용중"
+                              : reservation.status}
                         </Badge>
                       </div>
                     ))}
@@ -953,9 +946,8 @@ export default function AdminPage() {
                     >
                       <div className="flex items-center gap-4">
                         <div
-                          className={`w-3 h-3 rounded-full ${
-                            device.outOfOrder ? "bg-red-500" : "bg-green-500"
-                          }`}
+                          className={`w-3 h-3 rounded-full ${device.outOfOrder ? "bg-red-500" : "bg-green-500"
+                            }`}
                         />
                         <div>
                           <p className="font-medium">{device.name}</p>
@@ -1107,15 +1099,15 @@ export default function AdminPage() {
                             reservation.status === "WAITING"
                               ? "secondary"
                               : reservation.status === "RUNNING"
-                              ? "default"
-                              : "outline"
+                                ? "default"
+                                : "outline"
                           }
                         >
                           {reservation.status === "WAITING"
                             ? "대기"
                             : reservation.status === "RUNNING"
-                            ? "사용중"
-                            : reservation.status}
+                              ? "사용중"
+                              : reservation.status}
                         </Badge>
                         <Button
                           variant="destructive"
@@ -1171,10 +1163,10 @@ export default function AdminPage() {
                       onValueChange={(value) =>
                         setReportStatusFilter(
                           value as
-                            | "ALL"
-                            | "PENDING"
-                            | "IN_PROGRESS"
-                            | "RESOLVED"
+                          | "ALL"
+                          | "PENDING"
+                          | "IN_PROGRESS"
+                          | "RESOLVED"
                         )
                       }
                     >
@@ -1222,13 +1214,12 @@ export default function AdminPage() {
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <AlertTriangle
-                            className={`h-5 w-5 ${
-                              report.status === "PENDING"
+                            className={`h-5 w-5 ${report.status === "PENDING"
                                 ? "text-red-500"
                                 : report.status === "IN_PROGRESS"
-                                ? "text-yellow-500"
-                                : "text-green-500"
-                            }`}
+                                  ? "text-yellow-500"
+                                  : "text-green-500"
+                              }`}
                           />
                           <div>
                             <p className="font-medium">{report.machineName}</p>
@@ -1244,15 +1235,15 @@ export default function AdminPage() {
                               report.status === "PENDING"
                                 ? "destructive"
                                 : report.status === "IN_PROGRESS"
-                                ? "default"
-                                : "secondary"
+                                  ? "default"
+                                  : "secondary"
                             }
                           >
                             {report.status === "PENDING"
                               ? "대기"
                               : report.status === "IN_PROGRESS"
-                              ? "처리중"
-                              : "완료"}
+                                ? "처리중"
+                                : "완료"}
                           </Badge>
                           <Button
                             variant="outline"

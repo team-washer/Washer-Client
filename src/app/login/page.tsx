@@ -16,7 +16,6 @@ import {
 } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
-import { Checkbox } from "@/shared/components/ui/checkbox";
 import { useToast } from "@/shared/components/ui/use-toast";
 import { Shirt, Eye, EyeOff } from "lucide-react";
 import axios from "axios";
@@ -67,80 +66,6 @@ export default function LoginPage() {
     setFormData((prev) => ({ ...prev, rememberMe: checked }));
   };
 
-  const getDetailedErrorMessage = (error): string => {
-    // 네트워크 오류 체크
-    if (!navigator.onLine) {
-      return "인터넷 연결을 확인해주세요.";
-    }
-
-    // TypeError나 fetch 관련 오류 (실제 네트워크 문제)
-    if (error instanceof TypeError || error?.name === "TypeError") {
-      return "서버에 연결할 수 없습니다. 네트워크 상태를 확인해주세요.";
-    }
-
-    // API 응답 오류 (서버에서 온 응답)
-    if (error?.status) {
-      switch (error.status) {
-        case 400:
-          return "입력 정보가 올바르지 않습니다.";
-        case 401:
-          return "이메일 또는 비밀번호가 잘못되었습니다.";
-        case 403:
-          return "계정이 차단되었습니다. 관리자에게 문의하세요.";
-        case 404:
-          return "존재하지 않는 계정입니다.";
-        case 422:
-          return "입력한 정보를 다시 확인해주세요.";
-        case 429:
-          return "너무 많은 로그인 시도입니다. 잠시 후 다시 시도해주세요.";
-        case 500:
-          return "서버에 문제가 발생했습니다. (500)";
-        case 502:
-          return "서버가 일시적으로 사용할 수 없습니다. (502)";
-        case 503:
-          return "서버가 점검 중입니다. (503)";
-        case 504:
-          return "서버 응답 시간이 초과되었습니다. (504)";
-        default:
-          return `서버 오류가 발생했습니다. (${error.status})`;
-      }
-    }
-
-    // 메시지가 있는 경우 더 자세히 분석
-    if (error?.message) {
-      const message = error.message.toLowerCase();
-
-      if (
-        message.includes("failed to fetch") ||
-        message.includes("network error")
-      ) {
-        return "서버에 연결할 수 없습니다. 네트워크 상태를 확인해주세요.";
-      }
-      if (message.includes("timeout")) {
-        return "요청 시간이 초과되었습니다. 다시 시도해주세요.";
-      }
-      if (message.includes("unauthorized") || message.includes("401")) {
-        return "이메일 또는 비밀번호가 잘못되었습니다.";
-      }
-      if (message.includes("not found") || message.includes("404")) {
-        return "존재하지 않는 계정입니다.";
-      }
-      if (message.includes("서버")) {
-        return error.message;
-      }
-
-      // 원본 메시지가 한국어면 그대로 사용
-      if (/[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(error.message)) {
-        return error.message;
-      }
-
-      return `로그인 실패: ${error.message}`;
-    }
-
-    // 기본 오류 메시지
-    return "로그인 중 알 수 없는 오류가 발생했습니다.";
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -177,12 +102,10 @@ export default function LoginPage() {
       });
 
       router.push("/");
-    } catch (error) {
-      const errorMessage = getDetailedErrorMessage(error);
-
+    } catch (error: any) {
       toast({
         title: "로그인 실패",
-        description: errorMessage,
+        description: error.response?.data?.message,
         variant: "destructive",
       });
     } finally {
@@ -215,6 +138,7 @@ export default function LoginPage() {
                   id="emailPrefix"
                   name="emailPrefix"
                   placeholder=""
+                  pattern="^[a-zA-Z0-9]+$"
                   required
                   value={formData.emailPrefix}
                   onChange={handleChange}
