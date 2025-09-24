@@ -1,7 +1,7 @@
-import { AuthResponse } from "@/shared/lib/api-client";
-import { apiClient } from "@/shared/lib/api-request";
-import RoleEncryption from "@/shared/lib/role-encryption";
-import { NextRequest, NextResponse } from "next/server";
+import { AuthResponse } from '@/shared/lib/api-client';
+import { apiClient } from '@/shared/lib/api-request';
+import RoleEncryption from '@/shared/lib/role-encryption';
+import { NextRequest, NextResponse } from 'next/server';
 
 interface RequestBody {
   email: string;
@@ -12,7 +12,8 @@ export async function POST(request: NextRequest) {
   try {
     const body: RequestBody = await request.json();
 
-    const response: AuthResponse = await apiClient.post("/auth/signin", body);
+    const response: AuthResponse = await apiClient.post('/auth/signin', body);
+    console.log('response', response.data);
 
     if (response.data && response.data.success && response.data.data) {
       const {
@@ -28,40 +29,41 @@ export async function POST(request: NextRequest) {
 
       const res = NextResponse.json(response.data.data);
 
-      res.cookies.set("accessToken", accessToken, {
+      res.cookies.set('accessToken', accessToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: process.env.NODE_ENV === 'production',
         expires: accessTokenExpires,
-        sameSite: "strict",
+        sameSite: 'strict',
       });
 
-      res.cookies.set("refreshToken", refreshToken, {
+      res.cookies.set('refreshToken', refreshToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: process.env.NODE_ENV === 'production',
         expires: refreshTokenExpires,
-        sameSite: "strict",
+        sameSite: 'strict',
       });
 
-      res.cookies.set("role", RoleEncryption({ role }), {
+      res.cookies.set('role', RoleEncryption({ role }), {
         httpOnly: false,
-        secure: process.env.NODE_ENV === "production",
+        secure: process.env.NODE_ENV === 'production',
         expires: accessTokenExpires,
-        sameSite: "strict",
+        sameSite: 'strict',
       });
 
-      res.cookies.set("preRole", role, {
+      res.cookies.set('preRole', role, {
         httpOnly: false,
-        secure: process.env.NODE_ENV === "production",
+        secure: process.env.NODE_ENV === 'production',
         expires: accessTokenExpires,
-        sameSite: "strict",
+        sameSite: 'strict',
       });
 
       return res;
     }
-  } catch (err) {
+  } catch (error: any) {
+    console.log(error);
     return NextResponse.json(
-      { error: "서버에서 토큰 정보를 받아오지 못 했습니다." },
-      { status: 500 }
+      { message: error.response?.data?.error?.message },
+      { status: error?.status }
     );
   }
 }

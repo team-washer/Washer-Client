@@ -19,16 +19,10 @@ export async function POST(
         headers,
       }
     );
-
-    if (response.data && response.data.success) {
-      return new Response(response.data.message, { status: 200 });
-    } else {
-      return new Response(response.data.message, { status: 400 });
-    }
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json(
-      { error: '서버에서 사용자 제한 해제 정보를 받아오지 못 했습니다.' },
-      { status: 500 }
+      { message: error.response?.data?.error?.message },
+      { status: error?.status }
     );
   }
 }

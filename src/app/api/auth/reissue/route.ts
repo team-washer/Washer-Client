@@ -48,10 +48,10 @@ export async function POST(request: NextRequest) {
       });
       return res;
     }
-  } catch (err) {
+  } catch (error: any) {
     return NextResponse.json(
-      { error: '서버에서 토큰 정보를 받아오지 못 했습니다.' },
-      { status: 500 }
+      { message: error.response?.data?.error?.message },
+      { status: error?.status }
     );
   }
 }

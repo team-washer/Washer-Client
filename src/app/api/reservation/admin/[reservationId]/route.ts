@@ -25,10 +25,10 @@ export async function DELETE(
     } else {
       return new Response(response.data.message, { status: 400 });
     }
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json(
-      { error: '서버에서 사용자 제한 해제에 실패했습니다.' },
-      { status: 500 }
+      { message: error.response?.data?.error?.message },
+      { status: error?.status }
     );
   }
 }

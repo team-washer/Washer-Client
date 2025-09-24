@@ -12,10 +12,10 @@ export async function POST(request: NextRequest) {
     } else {
       return NextResponse.json(response.data, { status: 400 });
     }
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json(
-      { error: '서버에서 이메일 인증 정보를 받아오지 못 했습니다.' },
-      { status: 500 }
+      { message: error.response?.data?.error?.message },
+      { status: error?.status }
     );
   }
 }

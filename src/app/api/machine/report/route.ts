@@ -13,10 +13,10 @@ export async function POST(request: NextRequest) {
     console.log('리포트 응답:', response.data);
 
     return NextResponse.json(response.data);
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json(
-      { error: '서버에서 리포트 정보를 받아오지 못 했습니다.' },
-      { status: 500 }
+      { message: error.response?.data?.error?.message },
+      { status: error?.status }
     );
   }
 }
