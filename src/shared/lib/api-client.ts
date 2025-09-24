@@ -163,6 +163,7 @@ export interface AdminReservationInfo {
   status: "WAITING" | "RESERVED" | "CONFIRMED" | "RUNNING";
   startTime: string;
   remainingTime: string;
+  remainingSeconds: number;
 }
 
 export interface AdminReservationsResponse {
@@ -526,6 +527,13 @@ export const authApi = {
     }
   },
 
+  verifyPasswordChangeEmail: async (email: string, code: string) => {
+    return axios.post("/api/auth/pwchange/verify", {
+      email,
+      code,
+    });
+  },
+
   sendPasswordChangeVerification: async (email: string) => {
     return axios.post("/api/auth/pwchange/mailsend", {
       email,
@@ -536,7 +544,6 @@ export const authApi = {
     return axios.post("/api/auth/pwchange", {
       email,
       password,
-      code,
     });
   },
 
