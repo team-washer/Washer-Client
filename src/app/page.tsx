@@ -53,7 +53,7 @@ export default function HomePage() {
         await fetchMachines()
 
         // 2순위: 사용자 정보 로드
-        await fetchMyInfo()
+        // await fetchMyInfo()
 
         setIsInitialized(true) // 초기화 완료 표시
       } catch (error: any) {

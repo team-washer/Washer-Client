@@ -22,18 +22,16 @@ import { useToast } from "@/shared/components/ui/use-toast";
 import { useReservationStore } from "@/shared/lib/reservation-store";
 import { authApi, userApi, UserInfoResponse } from "@/shared/lib/api-client";
 import axios from "axios";
-import { cookies } from "next/headers";
 
 export function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
-  const [user, setUser] = useState<UserInfoResponse | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { fetchMyInfo } = useReservationStore();
+  const { currentUserInfo, fetchMyInfo } = useReservationStore();
   const isAuthPage =
     pathname === "/login" ||
     pathname === "/register" ||
@@ -50,16 +48,6 @@ export function Navbar() {
       }
     };
 
-    const fetchUserInfo = async () => {
-      try {
-        const userInfo = await userApi.getMyInfo();
-        setUser(userInfo.data);
-      } catch (error) {
-        console.error("Failed to fetch user info:", error);
-        setUser(null);
-      }
-    };
-
     if (!isAuthPage) {
       checkAdminRole();
       setIsAuthenticated(true);
@@ -68,7 +56,6 @@ export function Navbar() {
     }
 
     fetchMyInfo();
-    fetchUserInfo();
   }, [pathname, fetchMyInfo, isAuthPage]);
 
   const handleLogout = async () => {
@@ -161,20 +148,20 @@ export function Navbar() {
           <div className="hidden md:flex items-center space-x-2">
             <div className="text-right">
               <div className="text-sm font-medium text-gray-700">
-                {user ? (
+                {currentUserInfo ? (
                   <>
-                    {user.schoolNumber} {user.name}
+                    {currentUserInfo.schoolNumber} {currentUserInfo.name}
                   </>
                 ) : (
                   "로딩 중..."
                 )}
               </div>
-              {user?.roomNumber && !isAdmin && (
-                <div className="text-xs text-gray-500">{user.roomNumber}호</div>
+              {currentUserInfo?.roomNumber && !isAdmin && (
+                <div className="text-xs text-gray-500">{currentUserInfo.roomNumber}호</div>
               )}
-              {isAdmin && user?.roomNumber && (
+              {isAdmin && currentUserInfo?.roomNumber && (
                 <div className="text-xs text-red-500">
-                  관리자 | {user.roomNumber}호
+                  관리자 | {currentUserInfo.roomNumber}호
                 </div>
               )}
             </div>
@@ -215,22 +202,22 @@ export function Navbar() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-gray-900 truncate">
-                          {user ? (
+                          {currentUserInfo ? (
                             <>
-                              {user.schoolNumber} {user.name}
+                              {currentUserInfo?.schoolNumber} {currentUserInfo?.name}
                             </>
                           ) : (
                             "로딩 중..."
                           )}
                         </div>
-                        {user?.roomNumber && !isAdmin && (
+                        {currentUserInfo?.roomNumber && !isAdmin && (
                           <div className="text-xs text-gray-500">
-                            {user.roomNumber}호
+                            {currentUserInfo.roomNumber}호
                           </div>
                         )}
-                        {isAdmin && user?.roomNumber && (
+                        {isAdmin && currentUserInfo?.roomNumber && (
                           <div className="text-xs text-red-500">
-                            관리자 | {user.roomNumber}호
+                            관리자 | {currentUserInfo?.roomNumber}호
                           </div>
                         )}
                       </div>
