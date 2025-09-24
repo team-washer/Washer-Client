@@ -65,6 +65,7 @@ import {
 
 import { usePullToRefresh } from "@/shared/hooks/use-pull-to-refresh";
 import axios from "axios";
+import { set } from "react-hook-form";
 
 // 시간을 포맷팅하는 함수 (초 -> HH:MM:SS)
 const formatSecondsToTime = (seconds: number): string => {
@@ -366,7 +367,6 @@ export default function AdminPage() {
         description: "신고 상태가 성공적으로 변경되었습니다.",
       });
       await loadReports();
-      console.log("Report status updated:", response.data);
     } catch (error: any) {
       toast({
         title: "상태 변경 실패",
@@ -384,6 +384,7 @@ export default function AdminPage() {
     deviceName: string,
     currentStatus: boolean
   ) => {
+    setIsLoading(true);
     try {
       const response = await machineApi.updateOutOfOrderStatus(
         deviceName,
@@ -402,11 +403,14 @@ export default function AdminPage() {
         description: error.response?.data?.message || "기기 상태 변경 중 오류가 발생했습니다.",
         variant: "destructive",
       });
+    }finally { 
+      setIsLoading(false);
     }
   };
 
   // 예약 강제 삭제
   const handleForceDeleteReservation = async (reservationId: number) => {
+    setIsLoading(true);
     try {
       const response = await reservationApi.forceDeleteReservation(
         reservationId
@@ -422,11 +426,15 @@ export default function AdminPage() {
         description: error.response?.data?.message || "예약 삭제 중 오류가 발생했습니다.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   // 사용자 정지
   const handleRestrictUser = async () => {
+    setIsLoading(true);
+
     if (!selectedUserId || !restrictionReason.trim()) {
       toast({
         title: "입력 오류",
@@ -454,6 +462,7 @@ export default function AdminPage() {
         variant: "destructive",
       });
     } finally {
+      setIsLoading(false);
       setIsRestrictDialogOpen(false);
       setSelectedUserId(null);
       setRestrictionReason("");
@@ -462,17 +471,17 @@ export default function AdminPage() {
 
   // 사용자 정지 해제
   const handleUnrestrictUser = async () => {
+    setIsLoading(true);
     if (!selectedUserId) return;
 
     try {
-      const response = await userApi.unrestrictUser(selectedUserId);
+      await userApi.unrestrictUser(selectedUserId);
 
       toast({
         title: "정지 해제 완료",
         description: "사용자의 정지가 해제되었습니다.",
       });
       await loadAdminUsers();
-      console.log("User unrestricted:", response.data);
     } catch (error: any) {
       toast({
         title: "정지 해제 실패",
@@ -482,6 +491,7 @@ export default function AdminPage() {
     } finally {
       setIsUnrestrictDialogOpen(false);
       setSelectedUserId(null);
+      setIsLoading(false);
     }
   };
 
@@ -628,7 +638,7 @@ export default function AdminPage() {
             variant="outline"
             size="sm"
             onClick={handleRefreshData}
-            disabled={refreshing || refreshCooldown > 0}
+            disabled={isLoading || refreshing || refreshCooldown > 0}
             className="border-[#86A9FF] text-[#6487DB] hover:bg-[#EDF2FF]"
           >
             <RefreshCw
@@ -921,6 +931,7 @@ export default function AdminPage() {
                         setDeviceTypeFilter("ALL");
                         setFloorFilter("ALL");
                       }}
+                      disabled={isLoading}
                     >
                       필터 초기화
                     </Button>
@@ -976,6 +987,7 @@ export default function AdminPage() {
                               device.outOfOrder
                             )
                           }
+                          disabled={isLoading}
                         >
                           {device.outOfOrder ? (
                             <>
@@ -1117,6 +1129,7 @@ export default function AdminPage() {
                               reservation.reservationId
                             )
                           }
+                          disabled={isLoading}
                         >
                           <Trash2 className="h-4 w-4 mr-1" />
                           강제 삭제
@@ -1188,6 +1201,7 @@ export default function AdminPage() {
                         setSearchTerm("");
                         setReportStatusFilter("ALL");
                       }}
+                      disabled={isLoading}
                     >
                       필터 초기화
                     </Button>
@@ -1253,6 +1267,7 @@ export default function AdminPage() {
                               setSelectedReportStatus(report.status);
                               setIsReportStatusDialogOpen(true);
                             }}
+                            disabled={isLoading}
                           >
                             상태 변경
                           </Button>
@@ -1415,6 +1430,7 @@ export default function AdminPage() {
                                 setSelectedUserId(user.id);
                                 setIsRestrictDialogOpen(true);
                               }}
+                              disabled = {isLoading}
                             >
                               <UserX className="h-4 w-4 mr-1" />
                               정지
@@ -1427,6 +1443,7 @@ export default function AdminPage() {
                                 setSelectedUserId(user.id);
                                 setIsUnrestrictDialogOpen(true);
                               }}
+                              disabled = {isLoading}
                             >
                               <UserCheck className="h-4 w-4 mr-1" />
                               정지 해제
@@ -1486,10 +1503,13 @@ export default function AdminPage() {
               <Button
                 variant="outline"
                 onClick={() => setIsReportStatusDialogOpen(false)}
+                disabled={isLoading}
               >
                 취소
               </Button>
-              <Button onClick={handleUpdateReportStatus}>변경</Button>
+              <Button onClick={handleUpdateReportStatus} disabled={isLoading}>
+                변경
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1542,7 +1562,7 @@ export default function AdminPage() {
               >
                 취소
               </Button>
-              <Button variant="destructive" onClick={handleRestrictUser}>
+              <Button variant="destructive" onClick={handleRestrictUser} disabled={isLoading}>
                 정지
               </Button>
             </DialogFooter>
@@ -1565,10 +1585,13 @@ export default function AdminPage() {
               <Button
                 variant="outline"
                 onClick={() => setIsUnrestrictDialogOpen(false)}
+                disabled={isLoading}
               >
                 취소
               </Button>
-              <Button onClick={handleUnrestrictUser}>해제</Button>
+              <Button onClick={handleUnrestrictUser} disabled={isLoading}>
+                해제
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

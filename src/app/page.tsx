@@ -31,7 +31,7 @@ export default function HomePage() {
   } = useReservationStore()
 
   const currentUser = getCurrentUser();
-  const [userRoomNumber, setUserRoomNumber] = useState("")
+  const [userRoomNumber] = useState(currentUser?.roomNumber || "")
 
   // 사용자 정지 상태 확인
   const isCurrentUserRestricted = useCallback(() => {
@@ -51,9 +51,6 @@ export default function HomePage() {
       try {
         // 1순위: 기기 상태와 남은 시간 정보 먼저 로드
         await fetchMachines()
-
-        // 2순위: 사용자 정보 로드
-        await fetchMyInfo()
 
         setIsInitialized(true) // 초기화 완료 표시
       } catch (error: any) {

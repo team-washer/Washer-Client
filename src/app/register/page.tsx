@@ -50,9 +50,8 @@ export default function RegisterPage() {
     gender: "" 
   })
   const [isVerifying, setIsVerifying] = useState(false)
-  const [isVerified, setIsVerified] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [verificationCode, setVerificationCode] = useState("")
-  const [sentCode, setSentCode] = useState("")
   const [passwordError, setPasswordError] = useState("")
   const [passwordMatch, setPasswordMatch] = useState(true)
   const [verificationTimer, setVerificationTimer] = useState(0)
@@ -250,10 +249,10 @@ export default function RegisterPage() {
         description: `${fullEmail}로 인증코드를 발송했습니다.`,
       })
       nextStep()
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "인증코드 발송 실패",
-        description: error.message || "인증코드 발송 중 오류가 발생했습니다.",
+        description: error.response?.data?.message || "인증코드 발송 중 오류가 발생했습니다.",
         variant: "destructive",
       })
     } finally {
@@ -263,22 +262,23 @@ export default function RegisterPage() {
 
   const handleVerifyCode = async () => {
     const fullEmail = `${formData.emailPrefix}@gsm.hs.kr`
-
+    setIsLoading(true)
     try {
       await authApi.verifySignupEmail(fullEmail, verificationCode)
-      setIsVerified(true)
       setVerificationTimer(0) // 타이머 중지
       toast({
         title: "인증 완료",
         description: "이메일 인증이 완료되었습니다.",
       })
       nextStep()
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "인증 실패",
-        description: error.message || "인증코드가 올바르지 않습니다.",
+        description: error.response.data.message || "인증코드가 올바르지 않습니다.",
         variant: "destructive",
       })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -302,7 +302,7 @@ export default function RegisterPage() {
     }
 
     const fullEmail = `${formData.emailPrefix}@gsm.hs.kr`
-
+    setIsLoading(true)
     try {
       await authApi.signup({
         email: fullEmail,
@@ -324,6 +324,8 @@ export default function RegisterPage() {
         description: error.response?.data?.message || "회원가입 중 오류가 발생했습니다.",
         variant: "destructive",
       })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -723,7 +725,7 @@ export default function RegisterPage() {
             {currentStep !== "complete" && (
               <Button
                 onClick={handleNext}
-                disabled={!canProceed() || isVerifying || (currentStep === "verification" && verificationTimer === 0)}
+                disabled={isLoading || !canProceed() || isVerifying || (currentStep === "verification" && verificationTimer === 0)}
                 className="bg-gradient-to-r from-[#86A9FF] to-[#6487DB] hover:from-[#6487DB] hover:to-[#86A9FF] text-white rounded-lg px-4 py-2 disabled:opacity-50"
               >
                 {currentStep === "email"
