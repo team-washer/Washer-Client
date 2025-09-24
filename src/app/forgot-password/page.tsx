@@ -61,8 +61,8 @@ export default function ForgotPasswordPage() {
   const handleSendVerification = async () => {
     const fullEmail = `${formData.emailPrefix}@gsm.hs.kr`
 
+    setIsLoading(true)
     try {
-      setIsLoading(true)
       await authApi.sendPasswordChangeVerification(fullEmail)
 
       toast({
@@ -83,9 +83,9 @@ export default function ForgotPasswordPage() {
 
   // 인증코드 검증 함수 추가
   const handleVerifyCode = async () => {
-    // 인증코드 길이만 체크하고 바로 다음 단계로
+    setIsLoading(true)
     if (formData.verificationCode.length === 5) {
-      try{
+      try {
         await authApi.verifyPasswordChangeEmail(`${formData.emailPrefix}@gsm.hs.kr`, formData.verificationCode)
         toast({
           title: "인증코드 확인",
@@ -98,6 +98,8 @@ export default function ForgotPasswordPage() {
           description: error.response?.data?.message || "인증코드 확인 중 오류가 발생했습니다.",
           variant: "destructive",
         })
+      } finally {
+        setIsLoading(false)
       }
     } else {
       toast({
@@ -129,8 +131,8 @@ export default function ForgotPasswordPage() {
 
     const fullEmail = `${formData.emailPrefix}@gsm.hs.kr`
 
+    setIsLoading(true)
     try {
-      setIsLoading(true)
       await authApi.changePassword(fullEmail, formData.password)
 
       toast({

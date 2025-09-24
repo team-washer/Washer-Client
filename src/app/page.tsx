@@ -31,7 +31,7 @@ export default function HomePage() {
   } = useReservationStore()
 
   const currentUser = getCurrentUser();
-  const [userRoomNumber, setUserRoomNumber] = useState("")
+  const [userRoomNumber] = useState(currentUser?.roomNumber || "")
 
   // 사용자 정지 상태 확인
   const isCurrentUserRestricted = useCallback(() => {

@@ -62,10 +62,6 @@ export default function LoginPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleRememberMeChange = (checked: boolean) => {
-    setFormData((prev) => ({ ...prev, rememberMe: checked }));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -143,7 +139,6 @@ export default function LoginPage() {
                   value={formData.emailPrefix}
                   onChange={handleChange}
                   className="border-[#A8C2FF] focus-visible:ring-[#86A9FF] pr-24 text-base"
-                  disabled={isLoading}
                 />
                 <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500">
                   @gsm.hs.kr
@@ -162,7 +157,6 @@ export default function LoginPage() {
                   value={formData.password}
                   onChange={handleChange}
                   className="border-[#A8C2FF] focus-visible:ring-[#86A9FF] pr-12 text-base"
-                  disabled={isLoading}
                 />
                 <Button
                   type="button"
