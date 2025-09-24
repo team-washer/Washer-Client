@@ -32,6 +32,7 @@ export function Navbar() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { fetchMyInfo } = useReservationStore();
   const isAuthPage =
     pathname === "/login" ||
@@ -71,11 +72,14 @@ export function Navbar() {
   }, [pathname, fetchMyInfo, isAuthPage]);
 
   const handleLogout = async () => {
+    setIsLoading(true);
     try {
       await authApi.logout();
     } catch (error) {
       // 로그아웃은 실패해도 진행
       console.error("Logout error:", error);
+    } finally {
+      setIsLoading(false);
     }
 
     setIsOpen(false);
@@ -258,6 +262,7 @@ export function Navbar() {
                       variant="ghost"
                       className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 py-3"
                       onClick={handleLogout}
+                      disabled={isLoading}
                     >
                       <LogOut className="h-5 w-5 mr-3" />
                       로그아웃

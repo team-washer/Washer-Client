@@ -50,11 +50,9 @@ export default function MyPage() {
   const [currentMachineState, setCurrentMachineState] = useState<string>("");
 
   const loadUserInfo = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
       const response = await userApi.getMyInfo();
-
-      console.log(response.data);
 
       setUserInfo(response.data);
 
@@ -65,8 +63,6 @@ export default function MyPage() {
           response.data.remainingTime || ""
         );
         setRemainingTime(parsedTime);
-        console.log("Parsed remaining time from server:", parsedTime);
-        console.log("User info:", userInfo);
       } else {
         // 서버에서 시간 정보가 없을 때만 클라이언트에서 추정
         if (response.data.status === "WAITING") {
