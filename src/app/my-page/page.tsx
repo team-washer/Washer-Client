@@ -152,7 +152,6 @@ export default function MyPage() {
 
     try {
       const response = await machineApi.getDevices();
-      console.log("Machine status response:", response);
       if (response.status === 200 && response.data) {
         const { washer, dryer } = response.data;
         const allMachines = [...washer, ...dryer];

@@ -417,7 +417,7 @@ export const useReservationStore = create<ReservationStore>()(
 
         try {
           const userInfo = await userApi.getMyInfo();
-          console.log("Fetched user info:", userInfo);
+
           set({ currentUserInfo: userInfo.data, isLoading: false });
         } catch (error) {
           console.error("❌ Failed to fetch user info:", error);
