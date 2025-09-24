@@ -12,9 +12,7 @@ import { LayoutModal } from "@/shared/components/layout-modal"
 import { ReportMachineModal } from "@/shared/components/report-machine-modal"
 import { reservationApi } from "@/shared/lib/api-client"
 import { formatTime } from "@/shared/lib/utils"
-// import 문에 MachineHistoryModal 추가
 import { MachineHistoryModal } from "@/shared/components/machine-history-modal"
-import { AxiosError } from "axios"
 import { useRouter } from "next/navigation"
 
 export function DryerList() {
@@ -26,7 +24,6 @@ export function DryerList() {
 
   const {
     machines,
-    reservations,
     getCurrentUser,
     hasActiveReservation,
     hasActiveReservationByRoom,
@@ -122,7 +119,7 @@ export function DryerList() {
     setReservingMachineId(machineId)
 
     try {
-      const response = await reservationApi.createReservation(machineServerId)
+      await reservationApi.createReservation(machineServerId)
 
       toast({
         title: "예약 성공",
@@ -134,31 +131,9 @@ export function DryerList() {
       await fetchMachines()
       router.push('my-page')
     } catch (error: any) {
-      console.error("❌ Reservation error:", error.status)
-
-      let errorMessage = "예약 중 오류가 발생했습니다."
-
-      if (error?.status === 400) {
-        if (error.message.includes("이미 예약")) {
-          errorMessage = "이미 예약된 기기입니다."
-        } else if (error.message.includes("사용 중")) {
-          errorMessage = "현재 사용 중인 기기입니다."
-        } else if (error.message.includes("고장")) {
-          errorMessage = "고장난 기기는 예약할 수 없습니다."
-        } else {
-          errorMessage = error.message
-        }
-      } else if (error?.response?.status === 403) {
-        errorMessage = "정지된 사용자입니다."
-      } else if (error?.status === 409) {
-        errorMessage = "이미 다른 예약이 있습니다."
-      } else if (error?.message) {
-        errorMessage = error.message
-      }
-
       toast({
         title: "예약 실패",
-        description: errorMessage,
+        description: error.response?.data?.message,
         variant: "destructive",
       })
     } finally {

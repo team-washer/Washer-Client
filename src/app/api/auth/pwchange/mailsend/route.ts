@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
 
   try {
-    const response = await apiClient.post('/auth/pwchange/mailsend', body);
+    const response = await apiClient.post('/auth/password/change/mail/send', body);
 
     if (response.data && response.data.success) {
       return new Response(response.data.message, { status: 200 });

@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   
   try {
-    const response = await apiClient.post('/auth/signup/emailverify', body);
+    const response = await apiClient.post('/auth/signup/email/verify', body);
     console.log('이메일 인증 응답:', response.data);
     if (response.data && response.data.success) {
       return NextResponse.json(response.data, { status: 200 });

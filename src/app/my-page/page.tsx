@@ -32,7 +32,6 @@ import {
   machineApi,
   getMachineJobStateInfo,
   parseTimeStringToSeconds,
-  type UserInfo,
   UserInfoResponse,
 } from "@/shared/lib/api-client";
 import { formatTime } from "@/shared/lib/utils";
@@ -85,7 +84,7 @@ export default function MyPage() {
       toast({
         title: "사용자 정보 로드 실패",
         description:
-          error.message || "사용자 정보를 불러오는 중 오류가 발생했습니다.",
+          error.response.data.message || "사용자 정보를 불러오는 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     } finally {
@@ -314,7 +313,7 @@ export default function MyPage() {
       toast({
         title: "예약 취소 실패",
         description:
-          (error.message as string) || "예약 취소 중 오류가 발생했습니다.",
+          error.response.data.message || "예약 취소 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     } finally {
@@ -348,6 +347,7 @@ export default function MyPage() {
             title: `${machineType} 시작`,
             description: `${machineType}기에 연결 중입니다. 잠시만 기다려주세요.`,
           });
+          clearInterval(machineCheckInterval!);
         }
 
         // 사용자 정보 새로고침
@@ -364,7 +364,7 @@ export default function MyPage() {
       console.error("❌ Confirm reservation error:", error);
       toast({
         title: "예약 확정 실패",
-        description: error.message || "예약 확정 중 오류가 발생했습니다.",
+        description: error.response.data.message || "예약 확정 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     } finally {
