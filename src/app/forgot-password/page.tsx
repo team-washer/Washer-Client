@@ -70,10 +70,10 @@ export default function ForgotPasswordPage() {
         description: `${fullEmail}로 인증코드를 발송했습니다.`,
       })
       setCurrentStep("verification")
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "인증코드 발송 실패",
-        description: error.message || "인증코드 발송 중 오류가 발생했습니다.",
+        description: error.response?.data?.message || "인증코드 발송 중 오류가 발생했습니다.",
         variant: "destructive",
       })
     } finally {
@@ -125,21 +125,17 @@ export default function ForgotPasswordPage() {
         description: "비밀번호가 성공적으로 변경되었습니다.",
       })
       setCurrentStep("complete")
-    } catch (error) {
-      console.error("Password change error:", error)
-
+    } catch (error: any) {
       let errorMessage = "비밀번호 변경 중 오류가 발생했습니다."
 
       if (error.status === 400) {
-        if (error.message.includes("만료") || error.message.includes("expired")) {
+        if (error.response?.data?.message.includes("만료") || error.response?.data?.message.includes("expired")) {
           errorMessage = "인증코드가 만료되었습니다. 처음부터 다시 시도해주세요."
-        } else if (error.message.includes("잘못된") || error.message.includes("invalid")) {
+        } else if (error.response?.data?.message.includes("잘못된") || error.response?.data?.message.includes("invalid")) {
           errorMessage = "잘못된 인증코드입니다. 다시 확인해주세요."
         } else {
-          errorMessage = error.message
+          errorMessage = error.response?.data?.message
         }
-      } else if (error.status === 500) {
-        errorMessage = "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
       }
 
       toast({

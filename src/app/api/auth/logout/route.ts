@@ -23,8 +23,10 @@ export async function POST(request: NextRequest) {
     );
 
     return NextResponse.json(response.data);
-  } catch (error) {
-    console.error('Logout failed:', error);
-    return NextResponse.json(error);
+  } catch (error: any) {
+    return NextResponse.json(
+      { message: error.response?.data?.error?.message },
+      { status: error?.status }
+    );
   }
 }

@@ -321,7 +321,7 @@ export default function RegisterPage() {
     } catch (error: any) {
       toast({
         title: "회원가입 실패",
-        description: error.message || "회원가입 중 오류가 발생했습니다.",
+        description: error.response?.data?.message || "회원가입 중 오류가 발생했습니다.",
         variant: "destructive",
       })
     }

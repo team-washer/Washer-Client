@@ -25,24 +25,13 @@ export default function HomePage() {
     machines,
     reservations,
     getCurrentUser,
-    hasActiveReservation,
-    hasActiveReservationByRoom,
     fetchMachines,
     fetchMyInfo,
     decrementTimers,
   } = useReservationStore()
 
   const currentUser = getCurrentUser();
-  const [userId, setUserId] = useState("")
   const [userRoomNumber, setUserRoomNumber] = useState("")
-
-  // localStorage 접근을 위한 useEffect (한 번만 실행)
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setUserId(currentUser?.id ?? "")
-      setUserRoomNumber(currentUser?.roomNumber ?? "")
-    }
-  }, [currentUser])
 
   // 사용자 정지 상태 확인
   const isCurrentUserRestricted = useCallback(() => {
@@ -67,11 +56,10 @@ export default function HomePage() {
         await fetchMyInfo()
 
         setIsInitialized(true) // 초기화 완료 표시
-      } catch (error) {
-        console.error("❌ Failed to initialize data:", error)
+      } catch (error: any) {
         toast({
           title: "데이터 로드 실패",
-          description: "데이터를 불러오는 중 오류가 발생했습니다.",
+          description: error.response?.data?.message,
           variant: "destructive",
         })
       } finally {
@@ -113,14 +101,14 @@ export default function HomePage() {
         title: "새로고침 완료",
         description: "최신 정보로 업데이트되었습니다.",
       })
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "새로고침 실패",
-        description: "데이터를 새로고침하는 중 오류가 발생했습니다.",
+        description: error.response?.data?.message,
         variant: "destructive",
       })
     }
-  }, [refreshCooldown, userId, fetchMachines, fetchMyInfo, toast])
+  }, [refreshCooldown, fetchMachines, fetchMyInfo, toast])
 
   const { pullDistance, isPulling, isRefreshing } = usePullToRefresh({
     onRefresh: pullToRefreshHandler,

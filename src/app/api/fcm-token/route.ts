@@ -26,12 +26,10 @@ export async function POST(request: NextRequest) {
     );
 
     return NextResponse.json({ success: true }, { status: 200 });
-  } catch (error) {
-    console.error('Error in FCM token registration:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
+  } catch (error: any) {
     return NextResponse.json(
-      { success: false, message: errorMessage },
-      { status: 500 }
+      { message: error.response?.data?.error?.message },
+      { status: error?.status }
     );
   }
 }
