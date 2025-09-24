@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { AuthResponse } from '@/shared/lib/api-client';
 import { apiClient } from '@/shared/lib/api-request';
 import RoleEncryption from '@/shared/lib/role-encryption';
