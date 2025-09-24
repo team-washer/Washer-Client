@@ -508,7 +508,7 @@ export const authApi = {
   },
 
   sendSignupVerification: async (email: string) => {
-    axios.post("/api/auth/signup/mailsend", { email });
+    return axios.post("/api/auth/signup/mailsend", { email });
   },
 
   verifySignupEmail: async (email: string, code: string) => {
