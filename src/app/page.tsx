@@ -52,9 +52,6 @@ export default function HomePage() {
         // 1순위: 기기 상태와 남은 시간 정보 먼저 로드
         await fetchMachines()
 
-        // 2순위: 사용자 정보 로드
-        await fetchMyInfo()
-
         setIsInitialized(true) // 초기화 완료 표시
       } catch (error: any) {
         toast({
