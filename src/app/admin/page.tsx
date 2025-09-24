@@ -367,7 +367,6 @@ export default function AdminPage() {
         description: "신고 상태가 성공적으로 변경되었습니다.",
       });
       await loadReports();
-      console.log("Report status updated:", response.data);
     } catch (error: any) {
       toast({
         title: "상태 변경 실패",
@@ -476,14 +475,13 @@ export default function AdminPage() {
     if (!selectedUserId) return;
 
     try {
-      const response = await userApi.unrestrictUser(selectedUserId);
+      await userApi.unrestrictUser(selectedUserId);
 
       toast({
         title: "정지 해제 완료",
         description: "사용자의 정지가 해제되었습니다.",
       });
       await loadAdminUsers();
-      console.log("User unrestricted:", response.data);
     } catch (error: any) {
       toast({
         title: "정지 해제 실패",
