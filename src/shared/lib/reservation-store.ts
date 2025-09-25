@@ -15,7 +15,7 @@ import {
 } from "./api-client";
 import { MachineOperatingState } from "./machine-status";
 import axios from "axios";
-import { getRole } from "./getRole";
+import { getRole } from "./get-role";
 
 export type FloorType = 3 | 4 | 5;
 export type MachineType = "washing" | "dryer";

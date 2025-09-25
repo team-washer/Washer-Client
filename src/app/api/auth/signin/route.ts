@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         sameSite: 'strict',
       });
 
-      res.cookies.set('role', RoleEncryption({ role }), {
+      res.cookies.set('role', await RoleEncryption({ role }), {
         httpOnly: false,
         secure: process.env.NODE_ENV === 'production',
         expires: accessTokenExpires,

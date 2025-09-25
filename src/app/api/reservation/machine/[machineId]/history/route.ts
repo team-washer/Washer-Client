@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { machineId: string } }
+  context: { params: { machineId: string } }
 ) {
-  const { machineId } = params;
+  const { machineId } = context.params;
   const accessToken = request.cookies.get('accessToken')?.value;
   const headers = accessToken
     ? { Authorization: `Bearer ${accessToken}` }
