@@ -2,15 +2,15 @@ import RoleEncryption from '@/shared/lib/role-encryption';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-  const accessToken = request.cookies.get('accessToken')?.value;
-  const refreshToken = request.cookies.get('refreshToken')?.value;
+  try {
+    const accessToken = request.cookies.get('accessToken')?.value;
+    const refreshToken = request.cookies.get('refreshToken')?.value;
 
-  if (!refreshToken) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
+    if (!refreshToken) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
 
-  if (!accessToken) {
-    try {
+    if (!accessToken) {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BASE_URL}/auth/reissue`,
         {
@@ -36,21 +36,11 @@ export async function middleware(request: NextRequest) {
         const accessTokenExpires = new Date(`${accessTokenExpiredAt}+09:00`);
         const refreshTokenExpires = new Date(`${refreshTokenExpiredAt}+09:00`);
 
-        if (
-          isNaN(accessTokenExpires.getTime()) ||
-          isNaN(refreshTokenExpires.getTime())
-        ) {
-          console.warn(
-            'Invalid expiration dates, continuing with existing session'
-          );
-          return NextResponse.next();
-        }
-
         const nextResponse = NextResponse.next();
 
         nextResponse.cookies.set('accessToken', newAccessToken, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
+          secure: !!process.env.NODE_ENV,
           expires: accessTokenExpires,
           sameSite: 'strict',
           path: '/',
@@ -58,38 +48,39 @@ export async function middleware(request: NextRequest) {
 
         nextResponse.cookies.set('refreshToken', newRefreshToken, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
+          secure: !!process.env.NODE_ENV,
           expires: refreshTokenExpires,
           sameSite: 'strict',
           path: '/',
         });
 
-        nextResponse.cookies.set('role', RoleEncryption({ role }), {
+        nextResponse.cookies.set('role', await RoleEncryption({ role }), {
           httpOnly: false,
-          secure: process.env.NODE_ENV === 'production',
+          secure: !!process.env.NODE_ENV,
+          expires: accessTokenExpires,
+          sameSite: 'strict',
+          path: '/',
+        });
+
+        nextResponse.cookies.set('preRole', role, {
+          httpOnly: false,
+          secure: !!process.env.NODE_ENV,
           expires: accessTokenExpires,
           sameSite: 'strict',
           path: '/',
         });
 
         return nextResponse;
-      } else if (!data.success) {
-        const response = NextResponse.redirect(new URL('/login', request.url));
-        response.cookies.delete('accessToken');
-        response.cookies.delete('refreshToken');
-        response.cookies.delete('role');
-
-        return response;
       }
-    } catch (err) {
-      const response = NextResponse.redirect(new URL('/login', request.url));
-      response.cookies.delete('accessToken');
-      response.cookies.delete('refreshToken');
-      response.cookies.delete('role');
-
-      return response;
-      console.log('Token refresh error, continuing with existing session');
     }
+  } catch (err) {
+    const response = NextResponse.redirect(new URL('/login', request.url));
+    response.cookies.delete('accessToken');
+    response.cookies.delete('refreshToken');
+    response.cookies.delete('role');
+    response.cookies.delete('preRole');
+
+    return response;
   }
 
   return NextResponse.next();
@@ -97,6 +88,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!api/auth|login|register|forgot-password|_next/static|_next/image|favicon.ico|.*\\..*).*)',
+    '/((?!api|login|register|forgot-password|_next/static|_next/image|favicon.ico|.*\\..*).*)',
   ],
+  
 };

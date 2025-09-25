@@ -1,13 +1,24 @@
 import { UserRole } from "./auth-utils";
-import { publicEncrypt } from "crypto";
+import GetKey from "./get-key";
 
 interface Props {
   role: UserRole;
 }
 
-export default function RoleEncryption({ role }: Props) {
-  return publicEncrypt(
-    process.env.ROLE_PUBLIC_KEY ?? "",
-    Buffer.from(role)
-  ).toString("base64");
+export default async function RoleEncryption({ role }: Props) {
+  const key = await GetKey();
+  const textEncoder = new TextEncoder();
+  const iv = crypto.getRandomValues(new Uint8Array(16));
+
+  const encodeRole = textEncoder.encode(role);
+  const cipher = await crypto.subtle.encrypt(
+    {
+      name: "AES-CBC",
+      iv
+    },
+    key,
+    encodeRole
+  );
+
+  return Buffer.from(iv).toString("base64") + "." + Buffer.from(new Uint8Array(cipher)).toString("base64");
 }
