@@ -67,6 +67,21 @@ export default function HomePage() {
     initializeData()
   }, [isInitialized]) // isInitialized만 의존성으로 사용
 
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchMachines()
+        fetchMyInfo()
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
   // 1초마다 타이머 감소 (메모이제이션으로 최적화)
   useEffect(() => {
     const timer = setInterval(() => {
