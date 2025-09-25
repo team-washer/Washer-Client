@@ -14,7 +14,6 @@ import { useToast } from "@/shared/components/ui/use-toast"
 import { usePullToRefresh } from "@/shared/hooks/use-pull-to-refresh"
 
 export default function HomePage() {
-  const router = useRouter()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(true)
   const [refreshCooldown, setRefreshCooldown] = useState(0)
@@ -82,6 +81,15 @@ export default function HomePage() {
     };
   }, []);
 
+  useEffect(()=>{
+    const dataFetch = setInterval(()=>{
+      fetchMyInfo()
+      fetchMachines()
+    }, 60000)
+
+    return () => clearInterval(dataFetch);
+  }, [])
+  
   // 1초마다 타이머 감소 (메모이제이션으로 최적화)
   useEffect(() => {
     const timer = setInterval(() => {
