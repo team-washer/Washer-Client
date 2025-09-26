@@ -22,6 +22,15 @@ export async function middleware(request: NextRequest) {
         }
       );
 
+      if (response.status !== 200) {
+        const res = NextResponse.redirect(new URL('/login', request.url));
+        res.cookies.delete('accessToken');
+        res.cookies.delete('refreshToken');
+        res.cookies.delete('role');
+        res.cookies.delete('preRole');
+        return res;
+      }
+
       const data = await response.json();
 
       if (data && data.success && data.data) {
