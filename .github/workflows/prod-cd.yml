@@ -1,4 +1,4 @@
-name: Washer-Client CD
+name: Washer-Client CD Prod
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: self-hosted
+    runs-on: [self-hosted, ZHB-WasherWebVM-Prod]
     strategy:
       matrix:
         node-version: [20.x]
@@ -43,19 +43,14 @@ jobs:
         run: pnpm run build
         
       - name: Install PM2 globally
-        run: |
-          npm install -g pm2
+        run: npm install -g pm2
           
       - name: Restart app with PM2
         run: |
-          echo "=== 기존 프로세스 정리 ==="
           pm2 stop washer-client || true
           pm2 delete washer-client || true
           
-          echo "=== Next.js 직접 실행 ==="
-          # ecosystem.config.js 대신 직접 명령어로 실행
           pm2 start npm --name "washer-client" -- start
           
-          echo "=== PM2 저장 및 최종 상태 ==="
           pm2 save
           pm2 list
