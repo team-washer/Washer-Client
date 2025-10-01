@@ -42,15 +42,14 @@ jobs:
       - name: Build app
         run: pnpm run build
         
-      - name: Install PM2 globally
-        run: npm install -g pm2
-          
       - name: Restart app with PM2
         run: |
+          cd /root/actions-runner/_work/Washer-Client/Washer-Client
+          
           pm2 stop washer-client || true
           pm2 delete washer-client || true
           
-          pm2 start npm --name "washer-client" -- start
+          pm2 start "pnpm start" --name washer-client
           
           pm2 save
-          pm2 list
+          pm2 status
