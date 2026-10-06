@@ -12,6 +12,11 @@ import {
   type MachineType,
 } from "@/entities/machine"
 import {
+  getActiveReservation,
+  getReservationAvailability,
+  getRoomActiveReservations,
+} from "@/entities/reservation"
+import {
   getErrorMessage,
   getErrorStatus,
   isServiceUnavailableForUser,
@@ -22,6 +27,7 @@ import { CenteredMessage } from "@/shared/components/centered-message"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { useNow } from "@/shared/hooks/use-now"
 import { usePolling } from "@/shared/hooks/use-polling"
+import { MachineDialog, type ReservationContext } from "./MachineDialog"
 import { MachineTile, toneClasses } from "./MachineTile"
 
 const MACHINE_POLLING_MS = 30_000
@@ -64,22 +70,48 @@ export function MachineBoard({ type }: { type: MachineType }) {
   const [loadError, setLoadError] = useState<unknown>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null)
+  const [selectedMachineId, setSelectedMachineId] = useState<number | null>(null)
+  const [context, setContext] = useState<ReservationContext | null>(null)
+
+  const handleAuthError = useCallback(
+    (error: unknown): boolean => {
+      if (getErrorStatus(error) !== 401) return false
+      clearBrowserAuthSession()
+      router.replace("/login")
+      return true
+    },
+    [router],
+  )
 
   const loadMachines = useCallback(async () => {
     try {
       setMachines(await getMachineStatuses())
       setLoadError(null)
     } catch (error) {
-      if (getErrorStatus(error) === 401) {
-        clearBrowserAuthSession()
-        router.replace("/login")
-        return
-      }
-      setLoadError(error)
+      if (!handleAuthError(error)) setLoadError(error)
     }
-  }, [router])
+  }, [handleAuthError])
 
-  usePolling(loadMachines, MACHINE_POLLING_MS)
+  // Reservation rules for the reserve button. A failure only disables the
+  // button; the board itself stays usable.
+  const loadContext = useCallback(async () => {
+    try {
+      const [availability, myReservation, roomReservations] = await Promise.all([
+        getReservationAvailability(),
+        getActiveReservation(),
+        getRoomActiveReservations(),
+      ])
+      setContext({ availability, myReservation, roomReservations })
+    } catch (error) {
+      if (!handleAuthError(error)) setContext(null)
+    }
+  }, [handleAuthError])
+
+  const loadAll = useCallback(async () => {
+    await Promise.all([loadMachines(), loadContext()])
+  }, [loadMachines, loadContext])
+
+  usePolling(loadAll, MACHINE_POLLING_MS)
 
   const floors = useMemo(
     () => getMachineFloors((machines ?? []).filter((machine) => machine.type === type)),
@@ -101,7 +133,7 @@ export function MachineBoard({ type }: { type: MachineType }) {
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
-    await loadMachines()
+    await loadAll()
     setIsRefreshing(false)
   }
 
@@ -127,6 +159,7 @@ export function MachineBoard({ type }: { type: MachineType }) {
 
   const layout = selectedFloor === null ? null : buildFloorLayout(machines, type, selectedFloor)
   const { eyebrow, title } = titles[type]
+  const selectedMachine = machines.find(({ id }) => id === selectedMachineId) ?? null
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-[#F8FAFF] px-4 py-8 sm:px-6 lg:px-8">
@@ -176,8 +209,8 @@ export function MachineBoard({ type }: { type: MachineType }) {
           <Card>
             <CardContent className="p-4 sm:p-6">
               <div className="grid grid-cols-2 gap-3 sm:gap-6">
-                <Column label="왼쪽" machines={layout.left} now={now} />
-                <Column label="오른쪽" machines={layout.right} now={now} />
+                <Column label="왼쪽" machines={layout.left} now={now} onSelect={setSelectedMachineId} />
+                <Column label="오른쪽" machines={layout.right} now={now} onSelect={setSelectedMachineId} />
               </div>
               <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-gray-500">
                 <DoorOpen className="h-4 w-4" />
@@ -198,24 +231,56 @@ export function MachineBoard({ type }: { type: MachineType }) {
             <h2 className="text-sm font-semibold text-gray-700">위치 정보가 없는 {title}</h2>
             <div className="grid grid-cols-2 gap-3">
               {layout.unplaced.map((machine) => (
-                <MachineTile key={machine.id} machine={machine} now={now} />
+                <MachineTile
+                  key={machine.id}
+                  machine={machine}
+                  now={now}
+                  onSelect={() => setSelectedMachineId(machine.id)}
+                />
               ))}
             </div>
           </section>
         )}
+
+        <MachineDialog
+          machine={selectedMachine}
+          now={now}
+          context={context}
+          onOpenChange={(open) => {
+            if (!open) setSelectedMachineId(null)
+          }}
+          onChanged={loadAll}
+        />
       </div>
     </div>
   )
 }
 
-function Column({ label, machines, now }: { label: string; machines: Machine[]; now: number }) {
+function Column({
+  label,
+  machines,
+  now,
+  onSelect,
+}: {
+  label: string
+  machines: Machine[]
+  now: number
+  onSelect: (machineId: number) => void
+}) {
   return (
     <div className="space-y-3">
       <p className="text-center text-sm font-medium text-[#6487DB]">{label}</p>
       {machines.length === 0 ? (
         <p className="py-6 text-center text-xs text-gray-400">기기 없음</p>
       ) : (
-        machines.map((machine) => <MachineTile key={machine.id} machine={machine} now={now} />)
+        machines.map((machine) => (
+          <MachineTile
+            key={machine.id}
+            machine={machine}
+            now={now}
+            onSelect={() => onSelect(machine.id)}
+          />
+        ))
       )}
     </div>
   )

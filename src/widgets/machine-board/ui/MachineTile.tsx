@@ -26,7 +26,15 @@ const getRemainingText = (machine: Machine, now: number): string | null => {
   return machine.remainingMinutes !== null ? `${machine.remainingMinutes}분` : null
 }
 
-export function MachineTile({ machine, now }: { machine: Machine; now: number }) {
+export function MachineTile({
+  machine,
+  now,
+  onSelect,
+}: {
+  machine: Machine
+  now: number
+  onSelect: () => void
+}) {
   const { label, tone } = getMachineStatusView(machine)
   const Icon = machine.type === "DRYER" ? Wind : Shirt
   const position = machine.placement
@@ -35,7 +43,12 @@ export function MachineTile({ machine, now }: { machine: Machine; now: number })
   const remaining = tone === "inUse" ? getRemainingText(machine, now) : null
 
   return (
-    <div className={`rounded-xl border-2 p-3 ${toneClasses[tone].tile}`} title={machine.name}>
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`w-full rounded-xl border-2 p-3 text-left transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86A9FF] ${toneClasses[tone].tile}`}
+      title={machine.name}
+    >
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 font-semibold text-gray-900">
           <Icon className="h-4 w-4 text-[#6487DB]" />
@@ -52,6 +65,6 @@ export function MachineTile({ machine, now }: { machine: Machine; now: number })
           <span className={remaining ? "ml-2" : ""}>{machine.roomNumber}호</span>
         )}
       </div>
-    </div>
+    </button>
   )
 }
