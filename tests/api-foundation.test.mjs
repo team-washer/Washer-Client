@@ -38,5 +38,28 @@ test("normalizes backend failures into Error instances without losing the messag
   assert.ok(result instanceof Error)
   assert.equal(result.message, "실행 중인 예약이 있어 탈퇴할 수 없습니다.")
   assert.equal(result.status, 409)
-  assert.equal(result.code, "UNKNOWN_ERROR")
+  assert.equal(result.code, "CONFLICT")
+})
+
+test("preserves a backend error code and falls back to the HTTP status code", () => {
+  const backendCode = normalizeApiError({
+    response: {
+      status: 409,
+      data: {
+        message: "해당 기기는 현재 사용 중입니다.",
+        data: { errorCode: "MACHINE_IN_USE" },
+      },
+    },
+  })
+
+  assert.equal(backendCode.code, "MACHINE_IN_USE")
+
+  const fallbackCode = normalizeApiError({
+    response: {
+      status: 409,
+      data: { message: "충돌이 발생했습니다." },
+    },
+  })
+
+  assert.equal(fallbackCode.code, "CONFLICT")
 })
