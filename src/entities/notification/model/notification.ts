@@ -29,7 +29,13 @@ export const normalizeNotificationListResponse = (
 ): Notification[] | null => {
   if (!payload || typeof payload !== "object") return null
 
-  const value = payload as { notifications?: unknown }
+  const objectPayload = payload as Record<string, unknown>
+  const value =
+    objectPayload.data &&
+    typeof objectPayload.data === "object" &&
+    !Array.isArray(objectPayload.data)
+      ? (objectPayload.data as { notifications?: unknown })
+      : objectPayload
   if (!Array.isArray(value.notifications)) return null
 
   const notifications: Notification[] = []

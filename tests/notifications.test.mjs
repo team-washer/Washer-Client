@@ -20,6 +20,18 @@ test("normalizes the direct backend v2 notification list", () => {
   )
 })
 
+test("normalizes the wrapped backend v2 notification list", () => {
+  assert.deepEqual(
+    normalizeNotificationListResponse({
+      status: 200,
+      code: "SUCCESS",
+      message: "알림 목록 조회 성공",
+      data: validResponse,
+    }),
+    validResponse.notifications,
+  )
+})
+
 test("rejects an invalid notification list response", () => {
   assert.equal(
     normalizeNotificationListResponse({ notifications: [{ id: 1 }] }),
