@@ -1,191 +1,139 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
-import { Button } from "@/shared/components/ui/button";
+import { useEffect, useState } from "react"
+import Link from "next/link"
+import { usePathname, useRouter } from "next/navigation"
+import {
+  ClipboardList,
+  Home,
+  LogOut,
+  Menu,
+  Shirt,
+  User,
+} from "lucide-react"
+import { getMyInfo } from "@/entities/user"
+import type { MyInfo } from "@/entities/user"
+import { clearBrowserAuthSession } from "@/shared/auth/session"
+import { Button } from "@/shared/components/ui/button"
 import {
   Sheet,
   SheetContent,
   SheetTrigger,
-} from "@/shared/components/ui/sheet";
-import {
-  Shirt,
-  User,
-  LogOut,
-  Home,
-  ClipboardList,
-  ShieldAlert,
-  Menu,
-} from "lucide-react";
-import { useToast } from "@/shared/components/ui/use-toast";
-import { useReservationStore } from "@/shared/lib/reservation-store";
-import { authApi, userApi, UserInfoResponse } from "@/shared/lib/api-client";
-import axios from "axios";
+} from "@/shared/components/ui/sheet"
+import { useToast } from "@/shared/components/ui/use-toast"
+
+const authPaths = new Set(["/login", "/register", "/forgot-password"])
+
+const navigationItems = [
+  { href: "/", label: "홈", icon: Home },
+  { href: "/my-page", label: "마이페이지", icon: ClipboardList },
+]
 
 export function Navbar() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const { toast } = useToast();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const { currentUserInfo, fetchMyInfo } = useReservationStore();
-  const isAuthPage =
-    pathname === "/login" ||
-    pathname === "/register" ||
-    pathname === "/forgot-password";
+  const router = useRouter()
+  const pathname = usePathname()
+  const { toast } = useToast()
+  const [user, setUser] = useState<MyInfo | null>(null)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const isAuthPage = authPaths.has(pathname)
 
   useEffect(() => {
-    const checkAdminRole = async () => {
-      try {
-        const { data } = await axios.get(`/api/auth/role`);
-        setIsAdmin(data.role === "ROLE_ADMIN");
-      } catch (error) {
-        console.error("Failed to fetch role:", error);
-        setIsAdmin(false);
-      }
-    };
-
-    if (!isAuthPage) {
-      checkAdminRole();
-      setIsAuthenticated(true);
-    } else if (isAuthPage) {
-      setIsAuthenticated(false);
+    if (isAuthPage) {
+      setUser(null)
+      return
     }
 
-    fetchMyInfo();
-  }, [pathname, fetchMyInfo, isAuthPage]);
+    let isMounted = true
+    void getMyInfo()
+      .then((nextUser) => {
+        if (isMounted) setUser(nextUser)
+      })
+      .catch(() => {
+        if (isMounted) setUser(null)
+      })
 
-  const handleLogout = async () => {
-    setIsLoading(true);
-    try {
-      await authApi.logout();
-    } catch (error) {
-      // 로그아웃은 실패해도 진행
-      console.error("Logout error:", error);
-    } finally {
-      setIsLoading(false);
+    return () => {
+      isMounted = false
     }
+  }, [isAuthPage])
 
-    setIsOpen(false);
-
+  const handleLogout = () => {
+    setIsLoggingOut(true)
+    clearBrowserAuthSession()
     toast({
-      title: "로그아웃 성공",
+      title: "로그아웃 완료",
       description: "안전하게 로그아웃되었습니다.",
-    });
-
-    router.push("/login");
-  };
-
-  const closeSheet = () => {
-    setIsOpen(false);
-  };
-
-  if (!isAuthenticated) {
-    return null;
+    })
+    router.replace("/login")
   }
 
-  const navigationItems = [
-    {
-      href: "/",
-      label: "홈",
-      icon: Home,
-      active: pathname === "/",
-    },
-    {
-      href: "/my-page",
-      label: "마이페이지",
-      icon: ClipboardList,
-      active: pathname === "/my-page",
-    },
-    ...(isAdmin
-      ? [
-          {
-            href: "/admin",
-            label: "관리자",
-            icon: ShieldAlert,
-            active: pathname === "/admin",
-          },
-        ]
-      : []),
-  ];
+  if (isAuthPage) return null
+
+  const userLabel = user ? `${user.studentId} ${user.name}` : "사용자"
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm">
-      <div className="container mx-auto px-3 sm:px-4 h-14 md:h-16 flex items-center">
-        <div className="flex items-center space-x-4 sm:space-x-6">
+    <nav className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white shadow-sm">
+      <div className="container mx-auto flex h-14 items-center px-3 sm:px-4 md:h-16">
+        <div className="flex items-center gap-4 sm:gap-6">
           <Link href="/" className="flex items-center">
-            <Shirt className="h-5 w-5 md:h-6 md:w-6 text-[#86A9FF]" />
-            <span className="ml-2 text-lg md:text-xl font-bold text-[#6487DB]">
+            <Shirt className="h-5 w-5 text-[#86A9FF] md:h-6 md:w-6" />
+            <span className="ml-2 text-lg font-bold text-[#6487DB] md:text-xl">
               Washer
             </span>
           </Link>
 
-          <div className="hidden md:flex items-center space-x-1">
-            {navigationItems.map((item) => (
+          <div className="hidden items-center gap-1 md:flex">
+            {navigationItems.map(({ href, label, icon: Icon }) => (
               <Link
-                key={item.href}
-                href={item.href}
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  item.active
+                key={href}
+                href={href}
+                className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  pathname === href
                     ? "bg-[#A8C2FF] text-[#6487DB]"
                     : "text-gray-600 hover:bg-[#EDF2FF]"
                 }`}
               >
-                <div className="flex items-center">
-                  <item.icon className="h-4 w-4 mr-1" />
-                  <span>{item.label}</span>
-                </div>
+                <span className="flex items-center">
+                  <Icon className="mr-1 h-4 w-4" />
+                  {label}
+                </span>
               </Link>
             ))}
           </div>
         </div>
 
-        <div className="flex-1 flex items-center justify-end space-x-2">
-          {/* 데스크톱 사용자 정보 */}
-          <div className="hidden md:flex items-center space-x-2">
-            <div className="text-right">
-              <div className="text-sm font-medium text-gray-700">
-                {currentUserInfo ? (
-                  <>
-                    {currentUserInfo.schoolNumber} {currentUserInfo.name}
-                  </>
-                ) : (
-                  "로딩 중..."
-                )}
-              </div>
-              {currentUserInfo?.roomNumber && !isAdmin && (
-                <div className="text-xs text-gray-500">{currentUserInfo.roomNumber}호</div>
-              )}
-              {isAdmin && currentUserInfo?.roomNumber && (
-                <div className="text-xs text-red-500">
-                  관리자 | {currentUserInfo.roomNumber}호
-                </div>
-              )}
-            </div>
+        <div className="ml-auto flex items-center gap-2">
+          <div className="hidden text-right md:block">
+            <p className="text-sm font-medium text-gray-700">{userLabel}</p>
+            {user?.roomNumber && (
+              <p className="text-xs text-gray-500">{user.roomNumber}호</p>
+            )}
+          </div>
+
+          <div className="hidden items-center gap-2 md:flex">
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-full bg-[#EDF2FF] h-8 w-8"
+              className="h-8 w-8 rounded-full bg-[#EDF2FF]"
               onClick={() => router.push("/my-page")}
+              aria-label="마이페이지"
             >
               <User className="h-4 w-4 text-[#6487DB]" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-full bg-red-100 h-8 w-8"
+              className="h-8 w-8 rounded-full bg-red-100"
               onClick={handleLogout}
+              disabled={isLoggingOut}
+              aria-label="로그아웃"
             >
               <LogOut className="h-4 w-4 text-red-600" />
             </Button>
           </div>
 
-          {/* 모바일 메뉴 */}
           <div className="md:hidden">
-            <Sheet open={isOpen} onOpenChange={setIsOpen}>
+            <Sheet>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-9 w-9">
                   <Menu className="h-5 w-5" />
@@ -193,65 +141,50 @@ export function Navbar() {
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-72 sm:w-80">
-                <div className="flex flex-col h-full">
-                  {/* 사용자 정보 */}
-                  <div className="border-b border-gray-200 pb-4 mb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="flex items-center justify-center h-12 w-12 rounded-full bg-[#EDF2FF]">
+                <div className="flex h-full flex-col">
+                  <div className="mb-4 border-b border-gray-200 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#EDF2FF]">
                         <User className="h-6 w-6 text-[#6487DB]" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-900 truncate">
-                          {currentUserInfo ? (
-                            <>
-                              {currentUserInfo?.schoolNumber} {currentUserInfo?.name}
-                            </>
-                          ) : (
-                            "로딩 중..."
-                          )}
-                        </div>
-                        {currentUserInfo?.roomNumber && !isAdmin && (
-                          <div className="text-xs text-gray-500">
-                            {currentUserInfo.roomNumber}호
-                          </div>
-                        )}
-                        {isAdmin && currentUserInfo?.roomNumber && (
-                          <div className="text-xs text-red-500">
-                            관리자 | {currentUserInfo?.roomNumber}호
-                          </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-gray-900">
+                          {userLabel}
+                        </p>
+                        {user?.roomNumber && (
+                          <p className="text-xs text-gray-500">
+                            {user.roomNumber}호
+                          </p>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  {/* 네비게이션 메뉴 */}
                   <div className="flex-1 space-y-1">
-                    {navigationItems.map((item) => (
+                    {navigationItems.map(({ href, label, icon: Icon }) => (
                       <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={closeSheet}
-                        className={`flex items-center px-3 py-3 rounded-md text-sm font-medium transition-colors ${
-                          item.active
+                        key={href}
+                        href={href}
+                        className={`flex items-center rounded-md px-3 py-3 text-sm font-medium transition-colors ${
+                          pathname === href
                             ? "bg-[#A8C2FF] text-[#6487DB]"
                             : "text-gray-600 hover:bg-[#EDF2FF]"
                         }`}
                       >
-                        <item.icon className="h-5 w-5 mr-3" />
-                        {item.label}
+                        <Icon className="mr-3 h-5 w-5" />
+                        {label}
                       </Link>
                     ))}
                   </div>
 
-                  {/* 로그아웃 버튼 */}
                   <div className="border-t border-gray-200 pt-4">
                     <Button
                       variant="ghost"
-                      className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 py-3"
+                      className="w-full justify-start py-3 text-red-600 hover:bg-red-50 hover:text-red-700"
                       onClick={handleLogout}
-                      disabled={isLoading}
+                      disabled={isLoggingOut}
                     >
-                      <LogOut className="h-5 w-5 mr-3" />
+                      <LogOut className="mr-3 h-5 w-5" />
                       로그아웃
                     </Button>
                   </div>
@@ -262,5 +195,5 @@ export function Navbar() {
         </div>
       </div>
     </nav>
-  );
+  )
 }
