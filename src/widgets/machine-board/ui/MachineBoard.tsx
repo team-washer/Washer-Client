@@ -243,6 +243,7 @@ export function MachineBoard({ type }: { type: MachineType }) {
         )}
 
         <MachineDialog
+          key={selectedMachineId ?? "closed"}
           machine={selectedMachine}
           now={now}
           context={context}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { CalendarPlus, Loader2 } from "lucide-react"
+import { CalendarPlus, History, Loader2, TriangleAlert } from "lucide-react"
 import {
   getMachineStatusView,
   getMachineTypeFromName,
@@ -26,7 +26,9 @@ import {
 import { useToast } from "@/shared/components/ui/use-toast"
 import { formatClock, formatCountdown, parseServerDateTime } from "@/shared/lib/time"
 import { getReserveBlockReason, type ReserveBlockReason } from "../lib/reserveBlockReason"
+import { MachineHistoryPanel } from "./MachineHistoryPanel"
 import { toneClasses } from "./MachineTile"
+import { MalfunctionReportPanel } from "./MalfunctionReportPanel"
 
 export type ReservationContext = {
   availability: ReservationAvailability
@@ -74,6 +76,7 @@ export function MachineDialog({
 }) {
   const { toast } = useToast()
   const [isReserving, setIsReserving] = useState(false)
+  const [view, setView] = useState<"detail" | "report" | "history">("detail")
 
   if (!machine) return null
 
@@ -118,52 +121,89 @@ export function MachineDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{machine.name}</DialogTitle>
-          <DialogDescription>{typeLabels[machine.type]} 상세 정보</DialogDescription>
+          <DialogDescription>
+            {view === "report"
+              ? "고장 신고"
+              : view === "history"
+                ? "이용 이력"
+                : `${typeLabels[machine.type]} 상세 정보`}
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2 rounded-lg bg-gray-50 px-4 py-3 text-sm">
-          <Row label="상태">
-            <span className="flex items-center gap-1.5 font-medium">
-              <span className={`h-2 w-2 rounded-full ${toneClasses[tone].dot}`} />
-              {label}
-            </span>
-          </Row>
-          {machine.roomNumber && (tone === "reserved" || tone === "inUse") && (
-            <Row label="사용 호실">{machine.roomNumber}호</Row>
-          )}
-          {tone === "inUse" && completion && (
-            <>
-              <Row label="남은 시간">
-                <span className="tabular-nums">
-                  {completion.getTime() > now ? formatCountdown(completion.getTime() - now) : "곧 완료"}
+        {view === "report" && (
+          <MalfunctionReportPanel
+            machine={machine}
+            onDone={() => onOpenChange(false)}
+            onCancel={() => setView("detail")}
+          />
+        )}
+
+        {view === "history" && (
+          <MachineHistoryPanel machineId={machine.id} onBack={() => setView("detail")} />
+        )}
+
+        {view === "detail" && (
+          <>
+            <div className="space-y-2 rounded-lg bg-gray-50 px-4 py-3 text-sm">
+              <Row label="상태">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <span className={`h-2 w-2 rounded-full ${toneClasses[tone].dot}`} />
+                  {label}
                 </span>
               </Row>
-              <Row label="완료 예정">{formatClock(completion)}</Row>
-            </>
-          )}
-        </div>
+              {machine.roomNumber && (tone === "reserved" || tone === "inUse") && (
+                <Row label="사용 호실">{machine.roomNumber}호</Row>
+              )}
+              {tone === "inUse" && completion && (
+                <>
+                  <Row label="남은 시간">
+                    <span className="tabular-nums">
+                      {completion.getTime() > now ? formatCountdown(completion.getTime() - now) : "곧 완료"}
+                    </span>
+                  </Row>
+                  <Row label="완료 예정">{formatClock(completion)}</Row>
+                </>
+              )}
+            </div>
 
-        <div className="space-y-2">
-          <Button
-            className="w-full bg-[#86A9FF] hover:bg-[#6487DB]"
-            disabled={!context || blockReason !== null || isReserving}
-            onClick={() => void handleReserve()}
-          >
-            {isReserving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <CalendarPlus className="mr-2 h-4 w-4" />
-            )}
-            예약하기
-          </Button>
-          <p className="text-center text-xs text-gray-500">
-            {!context
-              ? "예약 가능 여부를 확인하고 있습니다."
-              : blockReason
-                ? blockMessage(blockReason, machine, context)
-                : `예약 후 ${RESERVED_TIMEOUT_MINUTES}분 안에 기기를 시작해 주세요.`}
-          </p>
-        </div>
+            <div className="space-y-2">
+              <Button
+                className="w-full bg-[#86A9FF] hover:bg-[#6487DB]"
+                disabled={!context || blockReason !== null || isReserving}
+                onClick={() => void handleReserve()}
+              >
+                {isReserving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CalendarPlus className="mr-2 h-4 w-4" />
+                )}
+                예약하기
+              </Button>
+              <p className="text-center text-xs text-gray-500">
+                {!context
+                  ? "예약 가능 여부를 확인하고 있습니다."
+                  : blockReason
+                    ? blockMessage(blockReason, machine, context)
+                    : `예약 후 ${RESERVED_TIMEOUT_MINUTES}분 안에 기기를 시작해 주세요.`}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" onClick={() => setView("history")}>
+                <History className="mr-2 h-4 w-4" />
+                이용 이력
+              </Button>
+              <Button
+                variant="outline"
+                className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                onClick={() => setView("report")}
+              >
+                <TriangleAlert className="mr-2 h-4 w-4" />
+                고장 신고
+              </Button>
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )
