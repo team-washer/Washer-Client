@@ -7,11 +7,18 @@ firebase.initializeApp(self.firebaseConfig);
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage(function (payload) {
-  const notificationTitle = payload.data?.title || '알림';
+  const notification = payload.notification || payload.data || {};
+  const notificationTitle = notification.title || '알림';
   const notificationOptions = {
-    body: payload.data?.body,
-    icon: 'https://washer-log.s3.ap-northeast-2.amazonaws.com/favicon.ico',
+    body: notification.body || '',
+    icon: '/icon-192x192.png',
+    data: { url: '/notifications' },
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+  event.waitUntil(clients.openWindow(event.notification.data?.url || '/notifications'));
 });

@@ -1,15 +1,16 @@
-import axios from 'axios';
+import { notificationUrls } from "@/shared/api/apiUrls"
+import { post } from "@/shared/api/http"
 
 interface Props {
   token: string;
 }
 
-async function usePushMessage({ token }: Props) {
+export async function registerPushToken({ token }: Props): Promise<void> {
   try {
-    await axios.post('/api/fcm-token', { token, platform: 'WEB' });
-  } catch (err) {
-    console.error(err);
+    await post(notificationUrls.fcmToken(), { token })
+  } catch (error) {
+    console.error("FCM 토큰 등록 오류:", error)
   }
 }
 
-export default usePushMessage;
+export default registerPushToken

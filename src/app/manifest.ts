@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: '기숙사 세탁기, 건조기 예약 시스템',
     start_url: '/',
     display: 'standalone',
-    background_color: '#ffffff',
-    theme_color: '#000000',
+    background_color: '#F8FAFF',
+    theme_color: '#86A9FF',
     icons: [
       {
         src: '/icon-192x192.png',

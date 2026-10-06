@@ -58,6 +58,6 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
 export const config = {
   matcher: [
-    "/((?!api|login|auth/callback|register|forgot-password|_next/static|_next/image|favicon.ico|.*\\..*).*)",
+    "/((?!api|login|auth/callback|_next/static|_next/image|favicon.ico|.*\\..*).*)",
   ],
 }

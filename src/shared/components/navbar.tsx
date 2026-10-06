@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
+  Bell,
   ClipboardList,
   Home,
   LogOut,
@@ -13,6 +14,8 @@ import {
 } from "lucide-react"
 import { getMyInfo } from "@/entities/user"
 import type { MyInfo } from "@/entities/user"
+import { getNotifications } from "@/entities/notification"
+import { NOTIFICATIONS_UPDATED_EVENT } from "@/entities/notification/lib/events"
 import { clearBrowserAuthSession } from "@/shared/auth/session"
 import { Button } from "@/shared/components/ui/button"
 import {
@@ -22,11 +25,12 @@ import {
 } from "@/shared/components/ui/sheet"
 import { useToast } from "@/shared/components/ui/use-toast"
 
-const authPaths = new Set(["/login", "/register", "/forgot-password"])
+const authPaths = new Set(["/login"])
 
 const navigationItems = [
   { href: "/", label: "홈", icon: Home },
   { href: "/my-page", label: "마이페이지", icon: ClipboardList },
+  { href: "/notifications", label: "알림", icon: Bell },
 ]
 
 export function Navbar() {
@@ -34,6 +38,7 @@ export function Navbar() {
   const pathname = usePathname()
   const { toast } = useToast()
   const [user, setUser] = useState<MyInfo | null>(null)
+  const [notificationCount, setNotificationCount] = useState(0)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const isAuthPage = authPaths.has(pathname)
 
@@ -54,6 +59,41 @@ export function Navbar() {
 
     return () => {
       isMounted = false
+    }
+  }, [isAuthPage])
+
+  useEffect(() => {
+    if (isAuthPage) {
+      setNotificationCount(0)
+      return
+    }
+
+    let isMounted = true
+    const loadNotificationCount = async () => {
+      try {
+        const notifications = await getNotifications()
+        if (isMounted) setNotificationCount(notifications.length)
+      } catch {
+        if (isMounted) setNotificationCount(0)
+      }
+    }
+
+    const handleNotificationsUpdated = () => {
+      void loadNotificationCount()
+    }
+
+    void loadNotificationCount()
+    window.addEventListener(
+      NOTIFICATIONS_UPDATED_EVENT,
+      handleNotificationsUpdated,
+    )
+
+    return () => {
+      isMounted = false
+      window.removeEventListener(
+        NOTIFICATIONS_UPDATED_EVENT,
+        handleNotificationsUpdated,
+      )
     }
   }, [isAuthPage])
 
@@ -96,6 +136,11 @@ export function Navbar() {
                 <span className="flex items-center">
                   <Icon className="mr-1 h-4 w-4" />
                   {label}
+                  {href === "/notifications" && notificationCount > 0 && (
+                    <span className="ml-1 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] leading-none text-white">
+                      {notificationCount > 99 ? "99+" : notificationCount}
+                    </span>
+                  )}
                 </span>
               </Link>
             ))}
@@ -173,6 +218,11 @@ export function Navbar() {
                       >
                         <Icon className="mr-3 h-5 w-5" />
                         {label}
+                        {href === "/notifications" && notificationCount > 0 && (
+                          <span className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] leading-none text-white">
+                            {notificationCount > 99 ? "99+" : notificationCount}
+                          </span>
+                        )}
                       </Link>
                     ))}
                   </div>

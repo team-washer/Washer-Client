@@ -4,7 +4,7 @@ import { OAuthProvider } from '@themoment-team/datagsm-oauth-react';
 import '@/app/globals.css';
 import { Toaster } from '@/shared/components/toaster';
 import { Navbar } from '@/shared/components/navbar';
-import '@/shared/lib/firebase';
+import { PwaProvider } from '@/shared/components/pwa-provider';
 import { Metadata, Viewport } from 'next';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -53,14 +53,16 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang='ko' suppressHydrationWarning>
       <body className={inter.className}>
-        <OAuthProvider
-          clientId={process.env.NEXT_PUBLIC_DATAGSM_CLIENT_ID || ''}
-          redirectUri={process.env.NEXT_PUBLIC_DATAGSM_REDIRECT_URI || ''}
-          authMode='STANDARD'
-        >
-          <Navbar />
-          <main>{children}</main>
-        </OAuthProvider>
+        <PwaProvider>
+          <OAuthProvider
+            clientId={process.env.NEXT_PUBLIC_DATAGSM_CLIENT_ID || ''}
+            redirectUri={process.env.NEXT_PUBLIC_DATAGSM_REDIRECT_URI || ''}
+            authMode='STANDARD'
+          >
+            <Navbar />
+            <main>{children}</main>
+          </OAuthProvider>
+        </PwaProvider>
         <Toaster />
       </body>
     </html>
