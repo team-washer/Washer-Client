@@ -1,103 +1,63 @@
-import RoleEncryption from '@/shared/lib/role-encryption';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server"
+import { authUrls } from "@/shared/api/apiUrls"
+import { AUTH_COOKIE_NAMES } from "@/shared/auth/cookies"
+import { normalizeTokenResponse } from "@/shared/auth/tokenSession"
 
-export async function middleware(request: NextRequest) {
+const apiBaseUrl = () =>
+  process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? ""
+
+const clearSessionAndRedirect = (request: NextRequest): NextResponse => {
+  const response = NextResponse.redirect(new URL("/login", request.url))
+  response.cookies.delete(AUTH_COOKIE_NAMES.ACCESS_TOKEN)
+  response.cookies.delete(AUTH_COOKIE_NAMES.REFRESH_TOKEN)
+  return response
+}
+
+export async function middleware(request: NextRequest): Promise<NextResponse> {
+  const accessToken = request.cookies.get(AUTH_COOKIE_NAMES.ACCESS_TOKEN)?.value
+  const refreshToken = request.cookies.get(AUTH_COOKIE_NAMES.REFRESH_TOKEN)?.value
+
+  if (accessToken) return NextResponse.next()
+  if (!refreshToken) return clearSessionAndRedirect(request)
+
   try {
-    const accessToken = request.cookies.get('accessToken')?.value;
-    const refreshToken = request.cookies.get('refreshToken')?.value;
+    const refreshUrl = new URL(authUrls.refresh(), apiBaseUrl() || request.url)
+    const tokenResponse = await fetch(refreshUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+      cache: "no-store",
+    })
 
-    if (!refreshToken) {
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
+    if (!tokenResponse.ok) return clearSessionAndRedirect(request)
 
-    if (!accessToken) {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_URL}/auth/reissue`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Refresh-Token': `Bearer ${refreshToken}`,
-          },
-        }
-      );
+    const tokens = normalizeTokenResponse(await tokenResponse.json())
+    if (!tokens) return clearSessionAndRedirect(request)
 
-      if (response.status !== 200) {
-        const res = NextResponse.redirect(new URL('/login', request.url));
-        res.cookies.delete('accessToken');
-        res.cookies.delete('refreshToken');
-        res.cookies.delete('role');
-        res.cookies.delete('preRole');
-        return res;
-      }
-
-      const data = await response.json();
-
-      if (data && data.success && data.data) {
-        const {
-          accessToken: newAccessToken,
-          accessTokenExpiredAt,
-          refreshToken: newRefreshToken,
-          refreshTokenExpiredAt,
-          role,
-        } = data.data;
-
-        const accessTokenExpires = new Date(`${accessTokenExpiredAt}+09:00`);
-        const refreshTokenExpires = new Date(`${refreshTokenExpiredAt}+09:00`);
-
-        const nextResponse = NextResponse.next();
-
-        nextResponse.cookies.set('accessToken', newAccessToken, {
-          httpOnly: true,
-          secure: !!process.env.NODE_ENV,
-          expires: accessTokenExpires,
-          sameSite: 'strict',
-          path: '/',
-        });
-
-        nextResponse.cookies.set('refreshToken', newRefreshToken, {
-          httpOnly: true,
-          secure: !!process.env.NODE_ENV,
-          expires: refreshTokenExpires,
-          sameSite: 'strict',
-          path: '/',
-        });
-
-        nextResponse.cookies.set('role', await RoleEncryption({ role }), {
-          httpOnly: false,
-          secure: !!process.env.NODE_ENV,
-          expires: accessTokenExpires,
-          sameSite: 'strict',
-          path: '/',
-        });
-
-        nextResponse.cookies.set('preRole', role, {
-          httpOnly: false,
-          secure: !!process.env.NODE_ENV,
-          expires: accessTokenExpires,
-          sameSite: 'strict',
-          path: '/',
-        });
-
-        return nextResponse;
-      }
-    }
-  } catch (err) {
-    const response = NextResponse.redirect(new URL('/login', request.url));
-    response.cookies.delete('accessToken');
-    response.cookies.delete('refreshToken');
-    response.cookies.delete('role');
-    response.cookies.delete('preRole');
-
-    return response;
+    const response = NextResponse.next()
+    const secure = process.env.NODE_ENV === "production"
+    response.cookies.set(AUTH_COOKIE_NAMES.ACCESS_TOKEN, tokens.accessToken, {
+      httpOnly: false,
+      secure,
+      sameSite: "lax",
+      path: "/",
+      maxAge: tokens.expiresIn,
+    })
+    response.cookies.set(AUTH_COOKIE_NAMES.REFRESH_TOKEN, tokens.refreshToken, {
+      httpOnly: false,
+      secure,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+    })
+    return response
+  } catch {
+    return clearSessionAndRedirect(request)
   }
-
-  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    '/((?!api|login|register|forgot-password|_next/static|_next/image|favicon.ico|.*\\..*).*)',
+    "/((?!api|login|auth/callback|register|forgot-password|_next/static|_next/image|favicon.ico|.*\\..*).*)",
   ],
-  
-};
+}

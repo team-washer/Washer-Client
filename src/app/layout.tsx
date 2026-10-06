@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Inter } from 'next/font/google';
+import { OAuthProvider } from '@themoment-team/datagsm-oauth-react';
 import '@/app/globals.css';
 import { Toaster } from '@/shared/components/toaster';
 import { Navbar } from '@/shared/components/navbar';
@@ -52,8 +53,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang='ko' suppressHydrationWarning>
       <body className={inter.className}>
-        <Navbar />
-        <main>{children}</main>
+        <OAuthProvider
+          clientId={process.env.NEXT_PUBLIC_DATAGSM_CLIENT_ID || ''}
+          redirectUri={process.env.NEXT_PUBLIC_DATAGSM_REDIRECT_URI || ''}
+          authMode='STANDARD'
+        >
+          <Navbar />
+          <main>{children}</main>
+        </OAuthProvider>
         <Toaster />
       </body>
     </html>
