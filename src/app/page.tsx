@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { AlertTriangle, CalendarClock, Loader2, RefreshCw } from "lucide-react"
+import { CalendarClock, Loader2, RefreshCw } from "lucide-react"
 import { getMachineStatuses, summarizeMachines, type Machine } from "@/entities/machine"
 import {
   cancelReservation,
@@ -19,6 +19,7 @@ import {
 } from "@/shared/api/errorMessage"
 import { clearBrowserAuthSession } from "@/shared/auth/session"
 import { Button } from "@/shared/components/ui/button"
+import { CenteredMessage } from "@/shared/components/centered-message"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { useToast } from "@/shared/components/ui/use-toast"
 import { useNow } from "@/shared/hooks/use-now"
@@ -209,20 +210,6 @@ export default function HomePage() {
           <MachineSummaryCard type="DRYER" summary={summarizeMachines(machines, "DRYER")} />
         </section>
       </div>
-    </div>
-  )
-}
-
-function CenteredMessage({ message, onRetry }: { message: string; onRetry?: () => void }) {
-  return (
-    <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-3xl items-center justify-center px-4 py-8">
-      <Card className="w-full max-w-md">
-        <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
-          <AlertTriangle className="h-10 w-10 text-red-500" />
-          <p className="text-sm text-gray-600">{message}</p>
-          {onRetry && <Button onClick={onRetry}>다시 시도</Button>}
-        </CardContent>
-      </Card>
     </div>
   )
 }

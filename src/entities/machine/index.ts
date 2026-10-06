@@ -1,6 +1,8 @@
 export { getMachineStatuses } from "./api/machineApi"
 export {
+  buildFloorLayout,
   getMachineFloors,
+  getMachineStatusView,
   getMachineTypeFromName,
   isMachineReservable,
   MACHINE_AVAILABILITIES,
@@ -11,10 +13,12 @@ export {
   parseMachinePlacement,
   summarizeMachines,
   type Machine,
+  type FloorLayout,
   type MachineAvailability,
   type MachinePlacement,
   type MachineSummary,
   type MachineSide,
   type MachineStatus,
+  type MachineStatusTone,
   type MachineType,
 } from "./model/machine"

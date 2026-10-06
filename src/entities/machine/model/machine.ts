@@ -60,6 +60,66 @@ export const getMachineTypeFromName = (name: string): MachineType | null => {
 export const isMachineReservable = (machine: Machine): boolean =>
   machine.status === "NORMAL" && machine.availability === "AVAILABLE"
 
+export type MachineStatusTone =
+  | "available"
+  | "reserved"
+  | "inUse"
+  | "cleaning"
+  | "broken"
+  | "unavailable"
+
+export const getMachineStatusView = (
+  machine: Machine,
+): { label: string; tone: MachineStatusTone } => {
+  if (machine.status === "MALFUNCTION") return { label: "고장", tone: "broken" }
+
+  switch (machine.availability) {
+    case "AVAILABLE":
+      return { label: "예약 가능", tone: "available" }
+    case "RESERVED":
+      return { label: "예약됨", tone: "reserved" }
+    case "IN_USE":
+      return { label: "사용 중", tone: "inUse" }
+    case "CLEANING":
+      return { label: "통세척 중", tone: "cleaning" }
+    case "UNAVAILABLE":
+      return { label: "사용 불가", tone: "unavailable" }
+  }
+}
+
+export type FloorLayout = {
+  left: Machine[]
+  right: Machine[]
+  unplaced: Machine[]
+}
+
+// Machines of one type on one floor, split by side. Each side is ordered by
+// number descending (e.g. L3, L2, L1), matching the existing layout map.
+export const buildFloorLayout = (
+  machines: Machine[],
+  type: MachineType,
+  floor: number,
+): FloorLayout => {
+  const layout: FloorLayout = { left: [], right: [], unplaced: [] }
+
+  for (const machine of machines) {
+    if (machine.type !== type) continue
+    if (!machine.placement) {
+      layout.unplaced.push(machine)
+      continue
+    }
+    if (machine.placement.floor !== floor) continue
+    layout[machine.placement.side === "LEFT" ? "left" : "right"].push(machine)
+  }
+
+  const byNumberDesc = (a: Machine, b: Machine) =>
+    (b.placement?.number ?? 0) - (a.placement?.number ?? 0)
+  layout.left.sort(byNumberDesc)
+  layout.right.sort(byNumberDesc)
+
+  return layout
+}
+
 export type MachineSummary = {
   total: number
   available: number

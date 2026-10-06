@@ -11,6 +11,7 @@ import {
   Menu,
   Shirt,
   User,
+  Wind,
 } from "lucide-react"
 import { getMyInfo } from "@/entities/user"
 import type { MyInfo } from "@/entities/user"
@@ -29,6 +30,8 @@ const authPaths = new Set(["/login"])
 
 const navigationItems = [
   { href: "/", label: "홈", icon: Home },
+  { href: "/washer", label: "세탁기", icon: Shirt },
+  { href: "/dryer", label: "건조기", icon: Wind },
   { href: "/my-page", label: "마이페이지", icon: ClipboardList },
   { href: "/notifications", label: "알림", icon: Bell },
 ]

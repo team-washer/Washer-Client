@@ -2,7 +2,9 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import { isEmptyBody, unwrapData } from "../src/shared/api/unwrapData.ts"
 import {
+  buildFloorLayout,
   getMachineFloors,
+  getMachineStatusView,
   getMachineTypeFromName,
   summarizeMachines,
   normalizeMachineStatusListResponse,
@@ -146,4 +148,34 @@ test("infers machine type from its name", () => {
   assert.equal(getMachineTypeFromName("Washer-3F-L1"), "WASHER")
   assert.equal(getMachineTypeFromName("dryer-2F-R1"), "DRYER")
   assert.equal(getMachineTypeFromName("Unknown-1"), null)
+})
+
+test("builds a floor layout split by side and ordered L3 → L1", () => {
+  const machines = normalizeMachineStatusListResponse({
+    machines: [
+      { ...machine, machineId: 1, name: "Washer-3F-L1" },
+      { ...machine, machineId: 2, name: "Washer-3F-L3" },
+      { ...machine, machineId: 3, name: "Washer-3F-R2" },
+      { ...machine, machineId: 4, name: "Washer-4F-L1" },
+      { ...machine, machineId: 5, name: "Dryer-3F-L2", type: "DRYER" },
+      { ...machine, machineId: 6, name: "Washer-Lobby" },
+    ],
+  })
+
+  const layout = buildFloorLayout(machines, "WASHER", 3)
+  assert.deepEqual(layout.left.map(({ id }) => id), [2, 1])
+  assert.deepEqual(layout.right.map(({ id }) => id), [3])
+  assert.deepEqual(layout.unplaced.map(({ id }) => id), [6])
+})
+
+test("shows malfunction ahead of availability", () => {
+  const [broken, cleaning] = normalizeMachineStatusListResponse({
+    machines: [
+      { ...machine, status: "MALFUNCTION", availability: "AVAILABLE" },
+      { ...machine, machineId: 2, availability: "CLEANING" },
+    ],
+  })
+
+  assert.deepEqual(getMachineStatusView(broken), { label: "고장", tone: "broken" })
+  assert.deepEqual(getMachineStatusView(cleaning), { label: "통세척 중", tone: "cleaning" })
 })
