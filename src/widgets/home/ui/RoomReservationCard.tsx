@@ -3,7 +3,7 @@
 import { Loader2, Shirt, Wind } from "lucide-react"
 import { getMachineTypeFromName, type MachineType } from "@/entities/machine"
 import { getReservedDeadline, type Reservation } from "@/entities/reservation"
-import { Badge } from "@/shared/components/ui/badge"
+import { ReservationStatusBadge } from "@/entities/reservation/ui/ReservationStatusBadge"
 import { Button } from "@/shared/components/ui/button"
 import {
   formatClock,
@@ -47,7 +47,7 @@ export function RoomReservationCard({
             </p>
           </div>
         </div>
-        <StatusBadge status={reservation.status} />
+        <ReservationStatusBadge status={reservation.status} />
       </div>
 
       <div className="mt-4 rounded-lg bg-gray-50 px-4 py-3 text-sm">
@@ -71,16 +71,6 @@ export function RoomReservationCard({
       )}
     </div>
   )
-}
-
-function StatusBadge({ status }: { status: Reservation["status"] }) {
-  if (status === "RESERVED") {
-    return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">예약됨</Badge>
-  }
-  if (status === "RUNNING") {
-    return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">사용 중</Badge>
-  }
-  return <Badge variant="secondary">{status === "COMPLETED" ? "완료" : "취소됨"}</Badge>
 }
 
 function ReservedBody({ reservation, now }: { reservation: Reservation; now: number }) {

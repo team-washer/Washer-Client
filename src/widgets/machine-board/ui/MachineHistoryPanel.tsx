@@ -2,24 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
-import {
-  getMachineHistory,
-  type MachineHistoryItem,
-  type ReservationStatus,
-} from "@/entities/reservation"
+import { getMachineHistory, type MachineHistoryItem } from "@/entities/reservation"
+import { ReservationStatusBadge } from "@/entities/reservation/ui/ReservationStatusBadge"
 import { getErrorMessage } from "@/shared/api/errorMessage"
-import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import { formatClock, formatDateTime, parseServerDateTime } from "@/shared/lib/time"
 
 const PAGE_SIZE = 10
-
-const statusBadges: Record<ReservationStatus, { label: string; className: string }> = {
-  RESERVED: { label: "예약됨", className: "bg-amber-100 text-amber-800 hover:bg-amber-100" },
-  RUNNING: { label: "사용 중", className: "bg-blue-100 text-blue-800 hover:bg-blue-100" },
-  COMPLETED: { label: "완료", className: "bg-green-100 text-green-800 hover:bg-green-100" },
-  CANCELLED: { label: "취소", className: "bg-gray-100 text-gray-700 hover:bg-gray-100" },
-}
 
 export function MachineHistoryPanel({
   machineId,
@@ -93,7 +82,6 @@ export function MachineHistoryPanel({
 }
 
 function HistoryRow({ item }: { item: MachineHistoryItem }) {
-  const badge = statusBadges[item.status]
   const createdAt = parseServerDateTime(item.createdAt)
   const startTime = parseServerDateTime(item.startTime)
   const completionTime = parseServerDateTime(item.completionTime)
@@ -102,7 +90,7 @@ function HistoryRow({ item }: { item: MachineHistoryItem }) {
     <div className="rounded-lg border bg-white px-3 py-2.5 text-sm">
       <div className="flex items-center justify-between gap-2">
         <span className="font-medium text-gray-900">{item.userRoomNumber}호</span>
-        <Badge className={badge.className}>{badge.label}</Badge>
+        <ReservationStatusBadge status={item.status} />
       </div>
       <p className="mt-1 text-xs text-gray-500">
         {createdAt ? `예약 ${formatDateTime(createdAt)}` : ""}

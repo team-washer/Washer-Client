@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation"
 import {
   Bell,
   ClipboardList,
+  History,
   Home,
   LogOut,
   Menu,
@@ -32,6 +33,7 @@ const navigationItems = [
   { href: "/", label: "홈", icon: Home },
   { href: "/washer", label: "세탁기", icon: Shirt },
   { href: "/dryer", label: "건조기", icon: Wind },
+  { href: "/reservation-history", label: "이용 내역", icon: History },
   { href: "/my-page", label: "마이페이지", icon: ClipboardList },
   { href: "/notifications", label: "알림", icon: Bell },
 ]
