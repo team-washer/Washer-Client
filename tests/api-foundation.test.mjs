@@ -21,9 +21,22 @@ test("normalizes backend errors into a stable app error", () => {
     },
   })
 
-  assert.deepEqual(result, {
-    status: 401,
-    message: "토큰이 만료되었습니다.",
-    code: "UNAUTHORIZED",
+  assert.ok(result instanceof Error)
+  assert.equal(result.status, 401)
+  assert.equal(result.message, "토큰이 만료되었습니다.")
+  assert.equal(result.code, "UNAUTHORIZED")
+})
+
+test("normalizes backend failures into Error instances without losing the message", () => {
+  const result = normalizeApiError({
+    response: {
+      status: 409,
+      data: { message: "실행 중인 예약이 있어 탈퇴할 수 없습니다." },
+    },
   })
+
+  assert.ok(result instanceof Error)
+  assert.equal(result.message, "실행 중인 예약이 있어 탈퇴할 수 없습니다.")
+  assert.equal(result.status, 409)
+  assert.equal(result.code, "UNKNOWN_ERROR")
 })

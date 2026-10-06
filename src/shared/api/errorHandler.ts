@@ -1,10 +1,19 @@
 import axios from "axios"
 
-export type NormalizedApiError = {
-  status: number | null
-  message: string
-  code: string
+export class ApiError extends Error {
+  public readonly status: number | null
+  public readonly code: string
+
+  constructor(message: string, status: number | null, code: string) {
+    super(message)
+    this.name = "ApiError"
+    this.status = status
+    this.code = code
+    Object.setPrototypeOf(this, new.target.prototype)
+  }
 }
+
+export type NormalizedApiError = ApiError
 
 const statusCode = (status: number | null): string => {
   if (status === 401) return "UNAUTHORIZED"
@@ -14,7 +23,9 @@ const statusCode = (status: number | null): string => {
   return "UNKNOWN_ERROR"
 }
 
-export const normalizeApiError = (error: unknown): NormalizedApiError => {
+export const normalizeApiError = (error: unknown): ApiError => {
+  if (error instanceof ApiError) return error
+
   if (axios.isAxiosError(error) || isResponseError(error)) {
     const responseError = error as {
       message?: string
@@ -26,18 +37,14 @@ export const normalizeApiError = (error: unknown): NormalizedApiError => {
       responseError.message ??
       "요청에 실패했습니다."
 
-    return { status, message, code: statusCode(status) }
+    return new ApiError(message, status, statusCode(status))
   }
 
   if (error instanceof Error) {
-    return { status: null, message: error.message, code: "UNKNOWN_ERROR" }
+    return new ApiError(error.message, null, "UNKNOWN_ERROR")
   }
 
-  return {
-    status: null,
-    message: "요청에 실패했습니다.",
-    code: "UNKNOWN_ERROR",
-  }
+  return new ApiError("요청에 실패했습니다.", null, "UNKNOWN_ERROR")
 }
 
 const isResponseError = (
