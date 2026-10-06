@@ -127,11 +127,6 @@
     [data-radix-tabs-trigger] {
       @apply h-10 text-sm;
     }
-
-    /* 기기 예약 카드 모바일 최적화 */
-    .reservation-card-content {
-      @apply pb-8;
-    }
   }
 
   /* 터치 디바이스 최적화 */
