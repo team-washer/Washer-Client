@@ -51,7 +51,45 @@ export const parseMachinePlacement = (name: string): MachinePlacement | null => 
   }
 }
 
-export const getMachineFloors = (machines: Machine[]): number[] =>
+export const getMachineTypeFromName = (name: string): MachineType | null => {
+  if (/^washer/i.test(name.trim())) return "WASHER"
+  if (/^dryer/i.test(name.trim())) return "DRYER"
+  return null
+}
+
+export const isMachineReservable = (machine: Machine): boolean =>
+  machine.status === "NORMAL" && machine.availability === "AVAILABLE"
+
+export type MachineSummary = {
+  total: number
+  available: number
+  inUse: number
+  unavailable: number
+}
+
+export const summarizeMachines = (
+  machines: Machine[],
+  type: MachineType,
+): MachineSummary => {
+  const summary: MachineSummary = { total: 0, available: 0, inUse: 0, unavailable: 0 }
+
+  for (const machine of machines) {
+    if (machine.type !== type) continue
+    summary.total += 1
+
+    if (isMachineReservable(machine)) summary.available += 1
+    else if (
+      machine.status === "NORMAL" &&
+      (machine.availability === "IN_USE" || machine.availability === "RESERVED")
+    ) {
+      summary.inUse += 1
+    } else summary.unavailable += 1
+  }
+
+  return summary
+}
+
+export const getMachineFloors =(machines: Machine[]): number[] =>
   [
     ...new Set(
       machines.flatMap((machine) =>

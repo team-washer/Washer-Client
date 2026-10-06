@@ -2,6 +2,7 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import { unwrapData } from "../src/shared/api/unwrapData.ts"
 import {
+  getReservedDeadline,
   normalizeCancellationResult,
   normalizeMachineHistoryPage,
   normalizeReservation,
@@ -172,4 +173,12 @@ test("normalizes my reservation history page", () => {
 
 test("rejects a history page with an invalid item", () => {
   assert.equal(normalizeMachineHistoryPage(pageOf([{ id: 1 }])), null)
+})
+
+test("computes the auto-cancel deadline five minutes after reservedAt", () => {
+  const deadline = getReservedDeadline(reservation)
+  assert.equal(
+    deadline - new Date(reservation.reservedAt).getTime(),
+    5 * 60_000,
+  )
 })

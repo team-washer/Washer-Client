@@ -12,6 +12,13 @@ export type ReservationMachineType = "WASHER" | "DRYER"
 // within this many minutes of reservedAt.
 export const RESERVED_TIMEOUT_MINUTES = 5
 
+// Epoch ms at which a RESERVED reservation is auto-cancelled.
+export const getReservedDeadline = (reservation: Reservation): number | null => {
+  const reservedAt = new Date(reservation.reservedAt).getTime()
+  if (Number.isNaN(reservedAt)) return null
+  return reservedAt + RESERVED_TIMEOUT_MINUTES * 60_000
+}
+
 export type Reservation = {
   id: number
   userId: number

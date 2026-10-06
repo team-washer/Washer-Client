@@ -10,6 +10,7 @@ export {
   type ReservationHistoryQuery,
 } from "./api/reservationApi"
 export {
+  getReservedDeadline,
   normalizeCancellationResult,
   normalizeMachineHistoryPage,
   normalizeReservation,

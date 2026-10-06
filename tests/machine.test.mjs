@@ -3,6 +3,8 @@ import assert from "node:assert/strict"
 import { isEmptyBody, unwrapData } from "../src/shared/api/unwrapData.ts"
 import {
   getMachineFloors,
+  getMachineTypeFromName,
+  summarizeMachines,
   normalizeMachineStatusListResponse,
   parseMachinePlacement,
 } from "../src/entities/machine/model/machine.ts"
@@ -117,4 +119,31 @@ test("lists distinct floors in ascending order", () => {
   })
 
   assert.deepEqual(getMachineFloors(machines), [2, 4])
+})
+
+test("summarizes machines of one type by availability", () => {
+  const machines = normalizeMachineStatusListResponse({
+    machines: [
+      { ...machine, machineId: 1, availability: "AVAILABLE" },
+      { ...machine, machineId: 2, availability: "IN_USE" },
+      { ...machine, machineId: 3, availability: "RESERVED" },
+      { ...machine, machineId: 4, availability: "AVAILABLE", status: "MALFUNCTION" },
+      { ...machine, machineId: 5, availability: "CLEANING" },
+      { ...machine, machineId: 6, name: "Dryer-3F-R1", type: "DRYER", availability: "AVAILABLE" },
+    ],
+  })
+
+  assert.deepEqual(summarizeMachines(machines, "WASHER"), {
+    total: 5,
+    available: 1,
+    inUse: 2,
+    unavailable: 2,
+  })
+  assert.equal(summarizeMachines(machines, "DRYER").available, 1)
+})
+
+test("infers machine type from its name", () => {
+  assert.equal(getMachineTypeFromName("Washer-3F-L1"), "WASHER")
+  assert.equal(getMachineTypeFromName("dryer-2F-R1"), "DRYER")
+  assert.equal(getMachineTypeFromName("Unknown-1"), null)
 })
