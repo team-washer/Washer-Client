@@ -21,6 +21,18 @@ test("normalizes the direct backend v2 my-info response", () => {
   assert.deepEqual(normalizeMyInfoResponse(validUser), validUser)
 })
 
+test("normalizes the wrapped backend v2 my-info response", () => {
+  assert.deepEqual(
+    normalizeMyInfoResponse({
+      status: 200,
+      code: "SUCCESS",
+      message: "내 정보 조회 성공",
+      data: validUser,
+    }),
+    validUser,
+  )
+})
+
 test("rejects an incomplete my-info response", () => {
   const { roomNumber: _, ...incompleteUser } = validUser
   assert.equal(normalizeMyInfoResponse(incompleteUser), null)

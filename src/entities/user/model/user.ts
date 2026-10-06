@@ -20,7 +20,13 @@ export type MyInfo = {
 export const normalizeMyInfoResponse = (payload: unknown): MyInfo | null => {
   if (!payload || typeof payload !== "object") return null
 
-  const value = payload as Record<string, unknown>
+  const objectPayload = payload as Record<string, unknown>
+  const value =
+    objectPayload.data &&
+    typeof objectPayload.data === "object" &&
+    !Array.isArray(objectPayload.data)
+      ? (objectPayload.data as Record<string, unknown>)
+      : objectPayload
   const isRole = (role: unknown): role is UserRole =>
     typeof role === "string" && USER_ROLES.includes(role as UserRole)
 
